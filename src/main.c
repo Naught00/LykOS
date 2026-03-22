@@ -63,6 +63,9 @@ void kmain(void) {
   }
 
   tasking_init();
+  kstring z = make_kstring("exec ui.elf", 10);
+  shell_execute(&z);
+  
   task_create("keyboard", &keyboard_process);
   task_create("uptime-clock", &draw_clock);
   task_create("spinner", &pit_spinner_tick);
