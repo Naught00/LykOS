@@ -17,7 +17,7 @@ void memcpy2(char *src, char *buf, size_t sz) {
 
 typedef struct rectangle {
 	int x;
-       	int y; 
+	int y; 
 	int w;
 	int h;
 } rectangle;
@@ -78,22 +78,22 @@ void draw_decoration(rectangle window_rec, color c) {
 }
 
 void draw_char_scaled(char c, size_t px, size_t py, color co, size_t scale) {
-  if (c < 0)
-    return;
+	if (c < 0)
+		return;
 
-  for (size_t row = 0; row < 8; row++) {
-    u8 bits = font8x8_basic[(size_t)c][row];
-    for (size_t col = 0; col < 8; col++) {
-      if (bits & (1 << col)) {
-        // Draw a scale x scale block instead of a single pixel
-        for (size_t dy = 0; dy < scale; dy++) {
-          for (size_t dx = 0; dx < scale; dx++) {
-            draw_pixel(px + col * scale + dx, py + row * scale + dy, co);
-          }
-        }
-      }
-    }
-  }
+	for (size_t row = 0; row < 8; row++) {
+		u8 bits = font8x8_basic[(size_t)c][row];
+		for (size_t col = 0; col < 8; col++) {
+			if (bits & (1 << col)) {
+				// Draw a scale x scale block instead of a single pixel
+				for (size_t dy = 0; dy < scale; dy++) {
+					for (size_t dx = 0; dx < scale; dx++) {
+						draw_pixel(px + col * scale + dx, py + row * scale + dy, co);
+					}
+				}
+			}
+		}
+	}
 }
 
 void draw_string(char *str, size_t px, size_t py, color c) {
