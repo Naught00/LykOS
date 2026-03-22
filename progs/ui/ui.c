@@ -1,5 +1,5 @@
-#include "lykosapi.h"
-#include "../src/vendor/font.h"
+#include "../lykosapi.h"
+#include "../../src/vendor/font.h"
 
 void memcpy2(char *src, char *buf, size_t sz) {
 	int i;
