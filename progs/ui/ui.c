@@ -3,7 +3,7 @@
 #include <ctype.h>
 #include "keys.h"
 
-int strlen(char *s) {
+size_t strlen(const char *s) {
 	int i;
 	while (*s++) i++;
 	return i;
@@ -34,6 +34,52 @@ void memcpy2(char *src, char *buf, size_t sz) {
 	}
 	return;
 }
+void *memset(void *s, int c, size_t n) {
+	u8 *p = (u8 *)s;
+
+	for (size_t i = 0; i < n; i++) {
+		p[i] = (u8)c;
+	}
+
+	return s;
+}
+
+void free(void *) {
+	return;
+}
+void *realloc(void *p, size_t sz) {
+	u8 *f = p;
+	u8 *new = mmap(sz);
+	memcpy(new, f, sz);
+	return new;
+}
+#include "strcmp.c"
+#include "strncmp.c"
+double pow(double, double) {
+	return 0;
+}
+int abs(int) {
+	return 0;
+}
+double ldexp(double, int) {
+	return 0;
+}
+void __assert_fail(const char *, const char *, unsigned int, const char *) {
+	lykos_exit();
+}
+void _assert(bool) {
+}
+void __isoc23_strtol() {
+}
+
+#define STBI_NO_STDIO
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_ASSERT(x) _assert(x)
+#define STBI_MALLOC mmap
+#define STBI_REALLOC realloc
+#define STBI_FREE free
+#define STBI_ONLY_JPEG
+#include "stb_image.h"
 
 #define RED 0xFF0000
 #define GREEN 0x00FF00
@@ -266,7 +312,7 @@ node *window(char *title, int x, int y, int w, int h, unsigned int flags) {
 	return np;
 }
 
-char *text_input(int id, node *parent, char *base, rectangle rec, unsigned int flags) {
+node *text_input(int id, node *parent, char *base, rectangle rec, unsigned int flags) {
 	node *np;
 	if (!node_exists_id(id, &np)) {
 		np = &nodes[node_c++];
@@ -276,7 +322,7 @@ char *text_input(int id, node *parent, char *base, rectangle rec, unsigned int f
 		np->buff_i = 0;
 		np->parent = parent;
 	}
-	return np->buffer;
+	return np;
 }
 
 void draw_texture(node *n) {
@@ -311,6 +357,15 @@ void set_pix_target(uint32_t *p) {
 	draw_width = width;
 }
 
+void set_focus(node *n) {
+	int i;
+	for (i = 0; i < win_c; i++) {
+		if (n == windows[i]) {
+			focused_window = i;
+		}
+	}
+}
+
 
 void main(int argc, char **argv) {
 	u32 *fb = mmap_fb();
@@ -321,6 +376,7 @@ void main(int argc, char **argv) {
 	for (int i = 0; i < width*height; i++) {
 		fb[i] = BG;
 	}
+	//u64 *mem = mmap(256);
 
 //	node *window = &nodes[node_i++];
 //	window->rec = r;
@@ -329,7 +385,7 @@ void main(int argc, char **argv) {
 //	static u32 term_buf[500 * 300];
 //	window.buf = term_buf;
 	for (;;) {
-		node *launcher = window("launcher", width / 2 - 250, height / 2 - 15, 500, 30, W_visible | N_title);
+		node *launcher = window("launcher", width / 2 - 250, height / 2 - 10, 500, 20, W_visible | N_title | W_draw_border);
 		for (int i = 0; i < width*height; i++) {
 			buf[i] = BG;
 		}
@@ -344,7 +400,7 @@ void main(int argc, char **argv) {
 			} else if (ev.key == KEY_UP_ARROW) {
 				diff.y -= 10;
 			} else if (ev.key == '\t') {
-				if (focused_window < win_c - 2)
+				if (focused_window < win_c - 1)
 					focused_window++;
 				else focused_window = 0;
 			} else if (ev.key == 27) {
@@ -363,6 +419,8 @@ void main(int argc, char **argv) {
 					launcher->flags &= ~W_visible;
 				} else {
 					launcher->flags |= W_visible;
+					set_focus(launcher);
+					
 				}
 			} else if (ev.key == KEY_DOWN_ARROW) {
 				diff.y += 10;
@@ -378,6 +436,19 @@ void main(int argc, char **argv) {
 		if (launcher->flags & W_visible) {
 			set_node_target(launcher);
 			draw_background(launcher, WHITE);
+			node *n;
+			n = text_input(3, launcher, "", launcher->rec, N_focused);
+			int x = 0;
+			int j = 0;
+			char c;
+			while (c = n->buffer[j++]) {
+				if (c == '\n') {
+					memset(n->buffer, 0, 256);
+					n->buff_i = 0;
+				}
+				draw_char_scaled(c, x, 5, BLACK, 1);
+				x += 8;
+			}
 			set_pix_target(buf);
 		}
 		node *win = window("mterm", 100, 100, 500, 300, defwinflags);
@@ -389,7 +460,9 @@ void main(int argc, char **argv) {
 			int prompt_len = strlen(prompt) * 8;
 			draw_string(prompt, 0, 0, WHITE);
 			char *a;
-			a = text_input(1, win, "", win->rec, N_focused);
+			node *n;
+			n = text_input(1, win, "", win->rec, N_focused);
+			a = n->buffer;
 
 			int x = prompt_len;
 			int y = 0;
@@ -414,7 +487,9 @@ void main(int argc, char **argv) {
 			set_node_target(win2);
 			draw_background(win2, dark_background);
 			char *a;
-			a = text_input(2, win2, "", win2->rec, 0);
+			node *n;
+			n = text_input(2, win2, "", win2->rec, 0);
+			a = n->buffer;
 
 			int x= 0;
 			int y= 0;

@@ -1,0 +1,1 @@
+draw_pixel y 0
