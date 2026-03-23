@@ -1,12 +1,57 @@
 #include "../lykosapi.h"
 #include "../../src/vendor/font.h"
+#include <ctype.h>
+#include "keys.h"
 
-bool streq(char *s, char *s2) {
-	while (*s++ && *s2++) {
-		if (*s != *s2) return false;
-	}
-	return true;
+int strlen(char *s) {
+	int i;
+	while (*s++) i++;
+	return i;
 }
+
+bool streq(char *s1, char *s2) {
+	if (!s1 || !s2) return false;
+	while (*s1++ == *s2++)  {
+		if (!*s1 && !*s2) return true;
+	}
+	return false;
+}
+
+void *memcpy(void *restrict dest, const void *restrict src, size_t n) {
+	u8 *restrict pdest = (u8 *restrict)dest;
+	const u8 *restrict psrc = (const u8 *restrict)src;
+
+	for (size_t i = 0; i < n; i++) {
+		pdest[i] = psrc[i];
+	}
+
+	return dest;
+}
+void memcpy2(char *src, char *buf, size_t sz) {
+	int i;
+	for (i = 0; i < sz; i++) {
+		src[i] = buf[i];
+	}
+	return;
+}
+
+#define RED 0xFF0000
+#define GREEN 0x00FF00
+#define GREY 0x47544a
+#define BG 0x2a45bf
+
+
+#define width 1920
+#define height 1080
+uint32_t *pixels;
+int draw_width = width;
+
+typedef struct color {
+	uint8_t r, g, b;
+} color;
+color WHITE = {255, 255, 255};
+color BLACK = {0, 0, 0};
+color dark_background = {11, 11, 11};
 
 typedef struct vector2 {
 	int x;
@@ -24,7 +69,9 @@ enum node_flags {
 	W_visible = 0x1,
 	W_draw_decoration = 0x2,
 	N_title = 0x4,
-	//W_should_steal_focus = 0x4
+	N_text = 0x8,
+	N_focused = 0x10,
+	W_draw_border = 0x20,
 };
 
 typedef struct node node;
@@ -39,44 +86,25 @@ struct node {
 		//bool *user_bool;
 		//Text input
 		struct {
-			char *buffer;
+			char buffer[256];
 			int  buff_i;
 		};
+		uint32_t texture[640 * 480];
 
-		uint32_t texture[500 * 300];
 	};
-	//node *parent;
+	node *parent;
 	unsigned int flags;
 };
 
-void memcpy2(char *src, char *buf, size_t sz) {
-	int i;
-	for (i = 0; i < sz; i++) {
-		src[i] = buf[i];
-	}
-	return;
-}
 
-#define RED 0xFF0000
-#define GREEN 0x00FF00
-#define GREY 0x47544a
-#define BLACK 0x0
-#define BG 0x482459
-
-
-#define width 1920
-#define height 1080
-uint32_t *pixels;
-int draw_width = width;
-
-typedef struct color {
-	uint8_t r, g, b;
-} color;
-color WHITE = {255, 255, 255};
-color deccolour = {132, 133, 119};
+node nodes[10];
+int node_c = 0;
+node *windows[10];
+int win_c = 0;
+int focused_window;
 
 void draw_pixel(int x, int y, color c) {
-	if (x <= 0 || y <= 0 || x >= width || y >= height) return;
+	if (x < 0 || y <= 0 || x >= width || y >= height) return;
 	pixels[x + (y * draw_width)] = *(uint32_t *) &c;
 	return;
 }
@@ -152,8 +180,24 @@ void draw_string(char *str, size_t px, size_t py, color c) {
 	}
 }
 
-void draw_decoration(node *n) { 
+void draw_border(node *n) {
+	color deccolour;
+	if (n == windows[focused_window]) {
+		deccolour = (color){132, 133, 119};
+	} else {
+		deccolour = (color){34, 34, 34};
+	}
 	draw_rect_lines(n->rec, deccolour);
+}
+
+void draw_decoration(node *n) { 
+	color deccolour;
+	if (n == windows[focused_window]) {
+		deccolour = (color){132, 133, 119};
+	} else {
+		deccolour = (color){34, 34, 34};
+	}
+	//draw_rect_lines(n->rec, deccolour);
 	rectangle window_rec = n->rec;
 	rectangle decoration = {0, 0, 0, 0};
 	decoration = (rectangle){window_rec.x, window_rec.y - 20, window_rec.w, 20};
@@ -169,8 +213,7 @@ void draw_decoration(node *n) {
 	draw_string(n->title, n->rec.x + 5, n->rec.y - 15, WHITE);
 }
 
-void draw_background(node *n) {
-	color c = {11, 11, 11};
+void draw_background(node *n, color c) {
 	draw_rectangle((rectangle){0, 0, n->rec.w, n->rec.h}, c);
 }
 
@@ -185,19 +228,30 @@ bool in_rectangle(int x, int y, rectangle r) {
 
 u32 buf[width * height] = {0};
 
-node nodes[3];
-int node_c = 0;
 
 bool node_exists(char *title, node **n) {
 	int i;
 	for (i = 0; i < node_c; i++) {
-		if (nodes[i].title && streq(nodes[i].title, title)) {
+		if (nodes[i].flags & N_title && streq(nodes[i].title, title)) {
 			*n = &nodes[i];
 			return true;
 		}
 	}
 	return false;
 }
+
+bool node_exists_id(int id, node **n) {
+	int i;
+	for (i = 0; i < node_c; i++) {
+		if (nodes[i].flags & N_text && nodes[i].id == id) {
+			*n = &nodes[i];
+			return true;
+		}
+	}
+	return false;
+}
+
+unsigned int defwinflags = W_visible | N_title | W_draw_decoration | W_draw_border;
 
 node *window(char *title, int x, int y, int w, int h, unsigned int flags) {
 	node *np;
@@ -206,8 +260,23 @@ node *window(char *title, int x, int y, int w, int h, unsigned int flags) {
 		np->title = title;
 		np->rec = (rectangle){x, y, w, h};
 		np->flags = flags;
+		np->parent = np;
+		windows[win_c++] = np;
 	}
 	return np;
+}
+
+char *text_input(int id, node *parent, char *base, rectangle rec, unsigned int flags) {
+	node *np;
+	if (!node_exists_id(id, &np)) {
+		np = &nodes[node_c++];
+		np->id = id;
+		np->rec = rec;
+		np->flags = N_text | flags;
+		np->buff_i = 0;
+		np->parent = parent;
+	}
+	return np->buffer;
 }
 
 void draw_texture(node *n) {
@@ -218,7 +287,8 @@ void draw_texture(node *n) {
 	y = n->rec.y;
 	int i;
 	for (i = 0; y1 < n->rec.h; i++) {
-		pixels[x + (y * width)] = n->texture[x1 + (y1 * n->rec.w)];
+		if (x < 0 || y < 0 || x >= width || y >= height) break;
+		pixels[x + (y * draw_width)] = n->texture[x1 + (y1 * n->rec.w)];
 		if (x1 == n->rec.w - 1) {
 			y++;
 			y1++;
@@ -230,6 +300,17 @@ void draw_texture(node *n) {
 		}
 	}
 }
+
+void set_node_target(node *n) {
+	pixels = n->texture;
+	draw_width = n->rec.w;
+}
+
+void set_pix_target(uint32_t *p) {
+	pixels = p;
+	draw_width = width;
+}
+
 
 void main(int argc, char **argv) {
 	u32 *fb = mmap_fb();
@@ -248,38 +329,150 @@ void main(int argc, char **argv) {
 //	static u32 term_buf[500 * 300];
 //	window.buf = term_buf;
 	for (;;) {
+		node *launcher = window("launcher", width / 2 - 250, height / 2 - 15, 500, 30, W_visible | N_title);
 		for (int i = 0; i < width*height; i++) {
 			buf[i] = BG;
 		}
-		node *win = window("mterm", 100, 100, 500, 300, W_visible | N_title);
-		pixels = win->texture;
-		draw_width = win->rec.w;
-		draw_background(win);
-		pixels = buf;
-		draw_width = width;
+		vector2 diff = {0};
+		KeyEvent ev;
+		char evbuf[16];
+		int evbufi = 0;
+		while (1) {
+			i64 ret = get_key_event(&ev);
+			if (ret == 0) {
+				break;
+			} else if (ev.key == KEY_UP_ARROW) {
+				diff.y -= 10;
+			} else if (ev.key == '\t') {
+				if (focused_window < win_c - 2)
+					focused_window++;
+				else focused_window = 0;
+			} else if (ev.key == 27) {
+				lykos_exit();
+			} else if (ev.key == 'q') {
+				if (windows[focused_window]) {
+					node *win = windows[focused_window];
+					if (win->flags & W_visible) {
+						win->flags &= ~W_visible;
+					} else {
+						win->flags |= W_visible;
+					}
+				}
+			} else if (ev.key == 'd') {
+				if (launcher->flags & W_visible) {
+					launcher->flags &= ~W_visible;
+				} else {
+					launcher->flags |= W_visible;
+				}
+			} else if (ev.key == KEY_DOWN_ARROW) {
+				diff.y += 10;
+			} else if (ev.key == KEY_LEFT_ARROW) {
+				diff.x -= 10;
+			} else if (ev.key == KEY_RIGHT_ARROW) {
+				diff.x += 10;
+			} else {
+				evbuf[evbufi++] = ev.key;
+			}
+		}
 
-		node *win2 = window("term", 100, 100, 500, 300, W_visible | N_title);
-		pixels = win2->texture;
-		draw_width = win2->rec.w;
-		draw_background(win2);
-		pixels = buf;
-		draw_width = width;
-		win->rec.x += 1;
-		win->rec.y += 1;
+		if (launcher->flags & W_visible) {
+			set_node_target(launcher);
+			draw_background(launcher, WHITE);
+			set_pix_target(buf);
+		}
+		node *win = window("mterm", 100, 100, 500, 300, defwinflags);
+		if (win->flags & W_visible)
+		{
+			set_node_target(win);
+			draw_background(win, dark_background);
+			char *prompt = "/user> ";
+			int prompt_len = strlen(prompt) * 8;
+			draw_string(prompt, 0, 0, WHITE);
+			char *a;
+			a = text_input(1, win, "", win->rec, N_focused);
+
+			int x = prompt_len;
+			int y = 0;
+			while (*a) {
+				if (*a == '\n') {
+					y += 8;
+					x = 0;
+					draw_string(prompt, x, y, WHITE);
+					x += prompt_len;
+				} else {
+					draw_char_scaled(*a, x, y, WHITE, 1);
+					x += 8;
+				}
+				*a++;
+			}
+			set_pix_target(buf);
+		}
+
+		node *win2 = window("xd", 400, 600, 500, 300, defwinflags);
+		if (win2->flags & W_visible)
+		{
+			set_node_target(win2);
+			draw_background(win2, dark_background);
+			char *a;
+			a = text_input(2, win2, "", win2->rec, 0);
+
+			int x= 0;
+			int y= 0;
+			while (*a++) {
+				if (*a == '\n') {
+					y += 8;
+					x = 0;
+				} else {
+					draw_char_scaled(*a, x, y, WHITE, 1);
+					x+=8;
+				}
+			}
+			set_pix_target(buf);
+		}
+		windows[focused_window]->rec.x += diff.x;
+		windows[focused_window]->rec.y += diff.y;
+		//win->rec.x += 3;
+		//win->rec.y += 3;
+		
+		node *bar = window("bar", 0, 0, width, 20, W_visible | N_title);
+		set_node_target(bar);
+		draw_background(bar, WHITE);
+		draw_string("Applications File Edit View", 5, 5, BLACK);
+		draw_string(windows[focused_window]->title, 30 * 8 , 5, BLACK);
+		set_pix_target(buf);
 
 		int i;
 		for (i = 0; i < node_c; i++) {
 			node *np = &nodes[i];
-			if (np->flags & W_visible) {
+			bool has_focus = np->parent == windows[focused_window];
+			if (has_focus && np->flags & N_text | N_focused && evbufi) {
+				for (int x = 0; x < evbufi; x++) {
+					np->buffer[np->buff_i++] = evbuf[x];
+				}
+			}
+
+			if (np->flags & W_visible && np->flags & N_title && !has_focus) {
 				draw_texture(np);
-				draw_decoration(np);
+				if (np->flags & W_draw_decoration)
+					draw_decoration(np);
+				if (np->flags & W_draw_border)
+					draw_border(np);
 			}
 		}
-		//draw_string("StarShell >", win->rec.x + 5, win->rec.y + 5, WHITE);
+		for (i = 0; i < node_c; i++) {
+			node *np = &nodes[i];
+			bool has_focus = np->parent == windows[focused_window];
+			if (np->flags & W_visible && np->flags & N_title && has_focus) {
+				draw_texture(np);
+				if (np->flags & W_draw_decoration)
+					draw_decoration(np);
+				if (np->flags & W_draw_border)
+					draw_border(np);
+			}
+		}
 
 		//if (win->rec.x == 200) win->flags &= ~W_visible;
 		memcpy2((void *) fb, (void *) buf, sizeof buf);
-		sleep(16);
 	}
 	return;
 }
