@@ -412,6 +412,7 @@ void g8bpp_to_32bpp(u32 *out, u8 *in, int w, int h) {
 	u8 *outb = (u8 *) out;
 	for (i = 0, x = 0; i < len; i += 4) {
 		byte b = in[x++];
+		if (!b) continue;
 		outb[i] = b;
 		outb[i + 1] = b;
 		outb[i + 2] = b;
@@ -452,7 +453,7 @@ void main(int argc, char **argv) {
 		lykos_exit();
 	}
 	//fix
-	int line_height = 64;
+	int line_height = 24;
 	float fscale = stbtt_ScaleForPixelHeight(&font, line_height);
 	int ascent, descent, linegap;
 	stbtt_GetFontVMetrics(&font, &ascent, &descent, &linegap);
