@@ -11,6 +11,10 @@ u8 scaled_image[] = {
 #embed "scaled_image.jpg"
 };
 
+u8 font_file[] = {
+#embed "font.ttf"
+};
+
 
 size_t strlen(const char *s) {
 	int i;
@@ -68,6 +72,13 @@ void _assert(bool b) {
 #define STBI_REALLOC krealloc
 #define STBI_FREE kfree
 #include "stb_image.h"
+
+#define STB_TRUETYPE_IMPLEMENTATION
+#define STBTT_assert(x) _assert(x)
+#define STBTT_malloc(x, u) kalloc(x)
+//#define STBTT_realloc krealloc
+#define STBTT_free(x, u) kfree(x)
+#include "stb_truetype.h"
 
 #define RED 0xFF0000
 #define GREEN 0x00FF00
@@ -321,6 +332,7 @@ void draw_texture_pix(u32 *texture, int ox, int oy, int w, int h) {
 	int i;
 	bool out_bounds;
 	for (i = 0; y1 < h; i++) {
+		//fixme draw_width/height
 		out_bounds = x < 0 || y < 0 || x >= width || y >= height;
 		if (!out_bounds) 
 			pixels[x + (y * draw_width)] = texture[x1 + (y1 * w)];
@@ -394,6 +406,19 @@ void bgr_to_rgb(byte *bgr, int w, int h) {
 	}
 }
 
+void g8bpp_to_32bpp(u32 *out, u8 *in, int w, int h) {
+	int i, x;
+	size len = w * h;
+	u8 *outb = (u8 *) out;
+	for (i = 0, x = 0; i < len; i += 4) {
+		byte b = in[x++];
+		outb[i] = b;
+		outb[i + 1] = b;
+		outb[i + 2] = b;
+		outb[i + 3] = b;
+	}
+}
+
 
 void main(int argc, char **argv) {
 	u32 *fb = mmap_fb();
@@ -405,7 +430,7 @@ void main(int argc, char **argv) {
 	set_pix_target(imgviewer->texture);
 	draw_width = iw;
 	draw_texture_pix((u32 *)scaled, 0, 0, iw, ih);
-	draw_width = 1920;
+	draw_width = width;
 
 	u8 *image = stbi_load_from_memory(img_buffer, sizeof img_buffer, &iw, &ih, &ic, 4);
 	bgr_to_rgb(image, iw, ih);
@@ -413,10 +438,65 @@ void main(int argc, char **argv) {
 	set_pix_target(surface->texture);
 	draw_width = iw;
 	draw_texture_pix((u32 *)image, 0, 0, iw, ih);
-	draw_width = 1920;
 
-
+	draw_width = width;
 	pixels = buf;
+
+
+	node *fontviewer = window("stb_truetype", 300, 100, 530, 300, defwinflags);
+	stbtt_fontinfo font;
+	u8 *fontbitmap = mmap2(fontviewer->rec.w * fontviewer->rec.h);
+	int bitmapw = fontviewer->rec.w;
+	if (!stbtt_InitFont(&font, font_file, 0))
+	{
+		lykos_exit();
+	}
+	//fix
+	int line_height = 64;
+	float fscale = stbtt_ScaleForPixelHeight(&font, line_height);
+	int ascent, descent, linegap;
+	stbtt_GetFontVMetrics(&font, &ascent, &descent, &linegap);
+	char *word = "Font Test!";
+	int i, x;
+	set_node_target(fontviewer);
+	draw_background(fontviewer, dark_background);
+	ascent = roundf(ascent * fscale);
+	descent = roundf(descent * fscale);
+	for (i = 0, x = 0; i < strlen(word); i++) {
+		/* how wide is this character */
+		int ax;
+		int lsb;
+		stbtt_GetCodepointHMetrics(&font, word[i], &ax, &lsb);
+		/* (Note that each Codepoint call has an alternative Glyph version which caches the work required to lookup the character word[i].) */
+
+		/* get bounding box for character (may be offset to account for chars that dip above or below the line) */
+		int c_x1, c_y1, c_x2, c_y2;
+		stbtt_GetCodepointBitmapBox(&font, word[i], fscale, fscale, &c_x1, &c_y1, &c_x2, &c_y2);
+
+		/* compute y (different characters have different heights) */
+		int y = ascent + c_y1;
+
+		/* render character (stride and offset is important here) */
+		int byteOffset = x + roundf(lsb * fscale) + (y * bitmapw);
+		stbtt_MakeCodepointBitmap(&font, (u8 *) fontbitmap + byteOffset, c_x2 - c_x1, c_y2 - c_y1, bitmapw, fscale, fscale, word[i]);
+
+		/* advance x */
+		x += roundf(ax * fscale);
+
+		/* add kerning */
+		int kern;
+		kern = stbtt_GetCodepointKernAdvance(&font, word[i], word[i + 1]);
+		x += roundf(kern * fscale);
+	}
+	//bgr_to_rgb((u8 *) fontviewer->texture, fontviewer->rec.w, fontviewer->rec.h);
+	g8bpp_to_32bpp(fontviewer->texture, fontbitmap, fontviewer->rec.w, fontviewer->rec.h);
+//	for (int k = 0; k < 100 * 100; k++) {
+//		fontviewer->texture[k] = 0xfffffffff;
+//	}
+	set_pix_target(buf);
+
+
+
 	rectangle r = {100, 100, 500, 300};
 	rectangle deco = {r.x, r.y - 20, r.w, 20};
 	color c = {0, 100, 100};
@@ -554,8 +634,8 @@ void main(int argc, char **argv) {
 		}
 		windows[focused_window]->rec.x += diff.x;
 		windows[focused_window]->rec.y += diff.y;
-		imgviewer->rec.x += 3;
-		imgviewer->rec.y += 3;
+		imgviewer->rec.x += 1;
+		imgviewer->rec.y += 1;
 		
 		node *bar = window("bar", 0, 0, width, 20, W_visible | N_title);
 		set_node_target(bar);
