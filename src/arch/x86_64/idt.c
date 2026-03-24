@@ -114,6 +114,24 @@ void isr_gpf(interrupt_frame *frame) {
       "GPF Exception in task id {uint} : {str}, terminating task\n",
       current_task, tasks[current_task].name);
   tasks[current_task].state = TASK_DEAD;
+  u64 cr2;
+  asm volatile("mov %%cr2, %0" : "=r"(cr2));
+  serial_writeln("=== gpf FAULT ===");
+  serial_fstring("  faulting address (CR2) = {hex}\n", cr2);
+  serial_fstring("  rip = {hex}\n", frame->rip);
+  serial_fstring("  rsp = {hex}\n", frame->rsp);
+  serial_fstring("  error code = {uint}\n", frame->error_code);
+  serial_fstring("  rax = {hex}\n", frame->rax);
+  serial_fstring("  rbx = {hex}\n", frame->rbx);
+  serial_fstring("  rcx = {hex}\n", frame->rcx);
+  serial_fstring("  rdx = {hex}\n", frame->rdx);
+  serial_fstring("  current task = {uint}\n", current_task);
+  serial_fstring("  task name = {str}\n", tasks[current_task].name);
+  u64 *stack = (u64 *)frame->rsp;
+  serial_writeln("Stack dump:");
+  for (int i = 0; i < 16; i++) {
+    serial_fstring("  [{uint}] = {hex}\n", (u64)i, stack[i]);
+  }
   debug_frame(frame);
   end_of_interrupt();
   yield();

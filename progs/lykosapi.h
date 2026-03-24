@@ -56,4 +56,4 @@ static inline i64 get_key_event(KeyEvent *ev_ptr) {
   return syscall1(SYS_GET_KV, (u64)ev_ptr);
 }
 
-static inline void *mmap(u64 size) { return (void *) syscall1(SYS_MMAP, size);}
+static inline void *mmap2(u64 size) { return (void *) syscall1(SYS_MMAP, size);}

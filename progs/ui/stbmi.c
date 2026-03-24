@@ -3,6 +3,10 @@
 #include <ctype.h>
 #include "keys.h"
 
+u8 img_buffer[] = {
+	#embed "img.png"
+};
+
 size_t strlen(const char *s) {
 	int i;
 	while (*s++) i++;
@@ -44,44 +48,54 @@ void *memset(void *s, int c, size_t n) {
 	return s;
 }
 
-void free(void *) {
+void free2(void *) {
 	return;
 }
-void *realloc(void *p, size_t sz) {
+void *realloc2(void *p, size_t sz) {
 	u8 *f = p;
-	u8 *new = mmap(sz);
+	u8 *new = mmap2(sz);
 	memcpy(new, f, sz);
 	return new;
 }
-#include "strcmp.c"
-#include "strncmp.c"
-double pow(double, double) {
-	return 0;
-}
-int abs(int) {
-	return a>0 ? a : -a;
-}
-double ldexp(double, int) {
-	return 0;
-}
-void __assert_fail(const char *, const char *, unsigned int, const char *) {
-	lykos_exit();
-}
+
+//#include "strcmp.c"
+//#include "strncmp.c"
+//double pow(double, double) {
+//	return 0;
+//}
+//int abs(int) {
+//	return a>0 ? a : -a;
+//}
+//double ldexp(double, int) {
+//	return 0;
+//}
+//void __assert_fail(const char *, const char *, unsigned int, const char *) {
+//	lykos_exit();
+//}
 void _assert(bool) {
 }
-void __isoc23_strtol() {
-}
+//void __isoc23_strtol() {
+//}
+
+#include "kalloc.h"
+#include "kalloc.c"
 
 #define STBI_NO_STDIO
+#define STBI_NO_THREAD_LOCALS
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_ASSERT(x) _assert(x)
-#define STBI_MALLOC mmap
-#define STBI_REALLOC realloc
-#define STBI_FREE free
-#define STBI_ONLY_JPEG
+#define STBI_MALLOC kalloc
+#define STBI_REALLOC krealloc
+#define STBI_FREE kfree
 #include "stb_image.h"
+stbi__context s;
 
 int main(void) {
-	write("test\n");
+	int iw, ih, ic;
+	u8 *image = stbi_load_from_memory(img_buffer, sizeof img_buffer, &iw, &ih, &ic, 0);
+//	stbi__start_mem(&s,img_buffer,sizeof img_buffer);
+//	stbi__load_and_postprocess_8bit(&s,&iw,&ih,&ic,0);
+	char *f = kalloc(1024);
+	kfree(f);
 	return 0 ;
 }

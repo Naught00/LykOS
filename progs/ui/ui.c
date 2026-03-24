@@ -2,6 +2,12 @@
 #include "../../src/vendor/font.h"
 #include <ctype.h>
 #include "keys.h"
+#include "mn.h"
+
+u8 img_buffer[] = {
+#embed "snow.jpg"
+};
+
 
 size_t strlen(const char *s) {
 	int i;
@@ -9,13 +15,13 @@ size_t strlen(const char *s) {
 	return i;
 }
 
-bool streq(char *s1, char *s2) {
-	if (!s1 || !s2) return false;
-	while (*s1++ == *s2++)  {
-		if (!*s1 && !*s2) return true;
-	}
-	return false;
-}
+//bool streq(char *s1, char *s2) {
+//	if (!s1 || !s2) return false;
+//	while (*s1++ == *s2++)  {
+//		if (!*s1 && !*s2) return true;
+//	}
+//	return false;
+//}
 
 void *memcpy(void *restrict dest, const void *restrict src, size_t n) {
 	u8 *restrict pdest = (u8 *restrict)dest;
@@ -43,42 +49,33 @@ void *memset(void *s, int c, size_t n) {
 
 	return s;
 }
-
-void free(void *) {
-	return;
-}
-void *realloc(void *p, size_t sz) {
-	u8 *f = p;
-	u8 *new = mmap(sz);
-	memcpy(new, f, sz);
-	return new;
-}
-#include "strcmp.c"
-#include "strncmp.c"
-double pow(double, double) {
-	return 0;
-}
-int abs(int) {
-	return 0;
-}
-double ldexp(double, int) {
-	return 0;
-}
-void __assert_fail(const char *, const char *, unsigned int, const char *) {
-	lykos_exit();
-}
+//#include "strcmp.c"
+//#include "strncmp.c"
+//double pow(double, double) {
+//	return 0;
+//}
+//int abs(int) {
+//	return 0;
+//}
+//double ldexp(double, int) {
+//	return 0;
+//}
+//void __assert_fail(const char *, const char *, int, const char *) {
+//	lykos_exit();
+//}
 void _assert(bool) {
 }
-void __isoc23_strtol() {
-}
+
+#include "kalloc.h"
+#include "kalloc.c"
 
 #define STBI_NO_STDIO
+#define STBI_NO_THREAD_LOCALS
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_ASSERT(x) _assert(x)
-#define STBI_MALLOC mmap
-#define STBI_REALLOC realloc
-#define STBI_FREE free
-#define STBI_ONLY_JPEG
+#define STBI_MALLOC kalloc
+#define STBI_REALLOC krealloc
+#define STBI_FREE kfree
 #include "stb_image.h"
 
 #define RED 0xFF0000
@@ -135,7 +132,7 @@ struct node {
 			char buffer[256];
 			int  buff_i;
 		};
-		uint32_t texture[640 * 480];
+		uint32_t texture[1920 * 1080];
 
 	};
 	node *parent;
@@ -347,6 +344,28 @@ void draw_texture(node *n) {
 	}
 }
 
+void draw_texture_pix(u32 *texture, int ox, int oy, int w, int h) {
+	int x, y, x1, y1;
+	x1 = 0;
+	y1 = 0;
+	x = ox;
+	y = oy;
+	int i;
+	for (i = 0; y1 < h; i++) {
+		if (x < 0 || y < 0 || x >= width || y >= height) break;
+		pixels[x + (y * draw_width)] = texture[x1 + (y1 * w)];
+		if (x1 == w - 1) {
+			y++;
+			y1++;
+			x = ox;
+			x1 = 0;
+		} else {
+			x++;
+			x1++;
+		}
+	}
+}
+
 void set_node_target(node *n) {
 	pixels = n->texture;
 	draw_width = n->rec.w;
@@ -366,9 +385,29 @@ void set_focus(node *n) {
 	}
 }
 
+void bgr_to_rgb(byte *bgr, int w, int h) {
+	int i;
+	size len = w * h * 4;
+	for (i = 0; i < len; i += 4) {
+		byte tmp = bgr[i];
+		bgr[i] = bgr[i + 2];
+		bgr[i + 2] = tmp;
+	}
+}
+
 
 void main(int argc, char **argv) {
 	u32 *fb = mmap_fb();
+	int iw, ih, ic;
+	u8 *image = stbi_load_from_memory(img_buffer, sizeof img_buffer, &iw, &ih, &ic, 4);
+	//u32 *rgbimg = mmap2(iw * ih * ic);
+	bgr_to_rgb(image, iw, ih);
+	node *surface = window("surface", 0, 0, iw, ih, defwinflags);
+	set_pix_target(surface->texture);
+	draw_width = iw;
+	draw_texture_pix((u32 *)image, 0, 0, iw, ih);
+	draw_width = 1920;
+
 	pixels = buf;
 	rectangle r = {100, 100, 500, 300};
 	rectangle deco = {r.x, r.y - 20, r.w, 20};
@@ -414,7 +453,7 @@ void main(int argc, char **argv) {
 						win->flags |= W_visible;
 					}
 				}
-			} else if (ev.key == 'd') {
+			} else if (ev.key == 'd' && ev.modifiers & MOD_CTRL) {
 				if (launcher->flags & W_visible) {
 					launcher->flags &= ~W_visible;
 				} else {
@@ -486,6 +525,7 @@ void main(int argc, char **argv) {
 		{
 			set_node_target(win2);
 			draw_background(win2, dark_background);
+			//draw_texture(surface);
 			char *a;
 			node *n;
 			n = text_input(2, win2, "", win2->rec, 0);
@@ -520,7 +560,7 @@ void main(int argc, char **argv) {
 		for (i = 0; i < node_c; i++) {
 			node *np = &nodes[i];
 			bool has_focus = np->parent == windows[focused_window];
-			if (has_focus && np->flags & N_text | N_focused && evbufi) {
+			if (has_focus && np->flags & N_text && evbufi) {
 				for (int x = 0; x < evbufi; x++) {
 					np->buffer[np->buff_i++] = evbuf[x];
 				}
