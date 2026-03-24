@@ -7,6 +7,9 @@
 u8 img_buffer[] = {
 #embed "snow.jpg"
 };
+u8 scaled_image[] = {
+#embed "scaled_image.jpg"
+};
 
 
 size_t strlen(const char *s) {
@@ -23,23 +26,23 @@ size_t strlen(const char *s) {
 //	return false;
 //}
 
-void *memcpy(void *restrict dest, const void *restrict src, size_t n) {
-	u8 *restrict pdest = (u8 *restrict)dest;
-	const u8 *restrict psrc = (const u8 *restrict)src;
-
-	for (size_t i = 0; i < n; i++) {
-		pdest[i] = psrc[i];
-	}
-
-	return dest;
-}
-void memcpy2(char *src, char *buf, size_t sz) {
-	int i;
-	for (i = 0; i < sz; i++) {
-		src[i] = buf[i];
-	}
-	return;
-}
+//void *memcpy(void *restrict dest, const void *restrict src, size_t n) {
+//	u8 *restrict pdest = (u8 *restrict)dest;
+//	const u8 *restrict psrc = (const u8 *restrict)src;
+//
+//	for (size_t i = 0; i < n; i++) {
+//		pdest[i] = psrc[i];
+//	}
+//
+//	return dest;
+//}
+//void memcpy2(char *src, char *buf, size_t sz) {
+//	int i;
+//	for (i = 0; i < sz; i++) {
+//		src[i] = buf[i];
+//	}
+//	return;
+//}
 void *memset(void *s, int c, size_t n) {
 	u8 *p = (u8 *)s;
 
@@ -147,7 +150,7 @@ int win_c = 0;
 int focused_window;
 
 void draw_pixel(int x, int y, color c) {
-	if (x < 0 || y <= 0 || x >= width || y >= height) return;
+	if (x < 0 || y < 0 || x >= width || y >= height) return;
 	pixels[x + (y * draw_width)] = *(uint32_t *) &c;
 	return;
 }
@@ -208,10 +211,10 @@ void draw_char_scaled(char c, size_t px, size_t py, color co, size_t scale) {
 void draw_string(char *str, size_t px, size_t py, color c) {
 	int g_scale = 1;
 	while (*str) {
-		if (px > (width - (7 * g_scale))) {
-			px = 0;
-			py += 8 * g_scale;
-		}
+		//if (px > (width - (7 * g_scale))) {
+		//	px = 0;
+		//	py += 8 * g_scale;
+		//}
 		if (*str == '\n') {
 			py += 8 * g_scale;
 			px = 0;
@@ -329,9 +332,14 @@ void draw_texture(node *n) {
 	x = n->rec.x;
 	y = n->rec.y;
 	int i;
+	//int tex_len = n->rec.w * n->rec.h;
+	bool out_bounds = false;
 	for (i = 0; y1 < n->rec.h; i++) {
-		if (x < 0 || y < 0 || x >= width || y >= height) break;
-		pixels[x + (y * draw_width)] = n->texture[x1 + (y1 * n->rec.w)];
+		//fixme draw_width/height
+		out_bounds = x < 0 || y < 0 || x >= width || y >= height;
+		if (!out_bounds) 
+			pixels[x + (y * draw_width)] = n->texture[x1 + (y1 * n->rec.w)];
+
 		if (x1 == n->rec.w - 1) {
 			y++;
 			y1++;
@@ -399,14 +407,23 @@ void bgr_to_rgb(byte *bgr, int w, int h) {
 void main(int argc, char **argv) {
 	u32 *fb = mmap_fb();
 	int iw, ih, ic;
+
+	u8 *scaled = stbi_load_from_memory(scaled_image, sizeof scaled_image, &iw, &ih, &ic, 4);
+	bgr_to_rgb(scaled, iw, ih);
+	node *imgviewer = window("Image Viewer", 200, 300, iw, ih, defwinflags);
+	set_pix_target(imgviewer->texture);
+	draw_width = iw;
+	draw_texture_pix((u32 *)scaled, 0, 0, iw, ih);
+	draw_width = 1920;
+
 	u8 *image = stbi_load_from_memory(img_buffer, sizeof img_buffer, &iw, &ih, &ic, 4);
-	//u32 *rgbimg = mmap2(iw * ih * ic);
 	bgr_to_rgb(image, iw, ih);
-	node *surface = window("surface", 0, 0, iw, ih, defwinflags);
+	node *surface = window("surface", 0, 0, iw, ih, W_visible | N_title);
 	set_pix_target(surface->texture);
 	draw_width = iw;
 	draw_texture_pix((u32 *)image, 0, 0, iw, ih);
 	draw_width = 1920;
+
 
 	pixels = buf;
 	rectangle r = {100, 100, 500, 300};
@@ -425,9 +442,9 @@ void main(int argc, char **argv) {
 //	window.buf = term_buf;
 	for (;;) {
 		node *launcher = window("launcher", width / 2 - 250, height / 2 - 10, 500, 20, W_visible | N_title | W_draw_border);
-		for (int i = 0; i < width*height; i++) {
-			buf[i] = BG;
-		}
+		//for (int i = 0; i < width*height; i++) {
+		//	buf[i] = BG;
+		//}
 		vector2 diff = {0};
 		KeyEvent ev;
 		char evbuf[16];
@@ -546,8 +563,8 @@ void main(int argc, char **argv) {
 		}
 		windows[focused_window]->rec.x += diff.x;
 		windows[focused_window]->rec.y += diff.y;
-		//win->rec.x += 3;
-		//win->rec.y += 3;
+		imgviewer->rec.x += 3;
+		imgviewer->rec.y += 3;
 		
 		node *bar = window("bar", 0, 0, width, 20, W_visible | N_title);
 		set_node_target(bar);
@@ -587,7 +604,7 @@ void main(int argc, char **argv) {
 		}
 
 		//if (win->rec.x == 200) win->flags &= ~W_visible;
-		memcpy2((void *) fb, (void *) buf, sizeof buf);
+		memcpy((void *) fb, (void *) buf, sizeof buf);
 	}
 	return;
 }

@@ -52,7 +52,7 @@ QEMU_CMD=(
     -serial file:serial.lg #-serial stdio
     $DEBUG_FLAGS
     -hda "$DISK"
-    # -drive if=pflash,format=raw,file=OVMF.4m.fd # UEFI
+    #-drive if=pflash,format=raw,file=OVMF.4m.fd # UEFI
 )
 # -d int,cpu,guest_errors
 # need to diswon and & for gdb and clion
