@@ -52,21 +52,9 @@ void *memset(void *s, int c, size_t n) {
 
 	return s;
 }
-//#include "strcmp.c"
-//#include "strncmp.c"
-//double pow(double, double) {
-//	return 0;
-//}
-//int abs(int) {
-//	return 0;
-//}
-//double ldexp(double, int) {
-//	return 0;
-//}
-//void __assert_fail(const char *, const char *, int, const char *) {
-//	lykos_exit();
-//}
-void _assert(bool) {
+
+void _assert(bool b) {
+	if (!b) lykos_exit();
 }
 
 #include "kalloc.h"
@@ -324,34 +312,6 @@ node *text_input(int id, node *parent, char *base, rectangle rec, unsigned int f
 	}
 	return np;
 }
-
-void draw_texture(node *n) {
-	int x, y, x1, y1;
-	x1 = 0;
-	y1 = 0;
-	x = n->rec.x;
-	y = n->rec.y;
-	int i;
-	//int tex_len = n->rec.w * n->rec.h;
-	bool out_bounds = false;
-	for (i = 0; y1 < n->rec.h; i++) {
-		//fixme draw_width/height
-		out_bounds = x < 0 || y < 0 || x >= width || y >= height;
-		if (!out_bounds) 
-			pixels[x + (y * draw_width)] = n->texture[x1 + (y1 * n->rec.w)];
-
-		if (x1 == n->rec.w - 1) {
-			y++;
-			y1++;
-			x = n->rec.x;
-			x1 = 0;
-		} else {
-			x++;
-			x1++;
-		}
-	}
-}
-
 void draw_texture_pix(u32 *texture, int ox, int oy, int w, int h) {
 	int x, y, x1, y1;
 	x1 = 0;
@@ -359,9 +319,11 @@ void draw_texture_pix(u32 *texture, int ox, int oy, int w, int h) {
 	x = ox;
 	y = oy;
 	int i;
+	bool out_bounds;
 	for (i = 0; y1 < h; i++) {
-		if (x < 0 || y < 0 || x >= width || y >= height) break;
-		pixels[x + (y * draw_width)] = texture[x1 + (y1 * w)];
+		out_bounds = x < 0 || y < 0 || x >= width || y >= height;
+		if (!out_bounds) 
+			pixels[x + (y * draw_width)] = texture[x1 + (y1 * w)];
 		if (x1 == w - 1) {
 			y++;
 			y1++;
@@ -373,6 +335,35 @@ void draw_texture_pix(u32 *texture, int ox, int oy, int w, int h) {
 		}
 	}
 }
+
+void draw_texture(node *n) {
+	draw_texture_pix(n->texture, n->rec.x, n->rec.y, n->rec.w, n->rec.h);
+	//int x, y, x1, y1;
+	//x1 = 0;
+	//y1 = 0;
+	//x = n->rec.x;
+	//y = n->rec.y;
+	//int i;
+	////int tex_len = n->rec.w * n->rec.h;
+	//bool out_bounds = false;
+	//for (i = 0; y1 < n->rec.h; i++) {
+	//	//fixme draw_width/height
+	//	out_bounds = x < 0 || y < 0 || x >= width || y >= height;
+	//	if (!out_bounds) 
+	//		pixels[x + (y * draw_width)] = n->texture[x1 + (y1 * n->rec.w)];
+
+	//	if (x1 == n->rec.w - 1) {
+	//		y++;
+	//		y1++;
+	//		x = n->rec.x;
+	//		x1 = 0;
+	//	} else {
+	//		x++;
+	//		x1++;
+	//	}
+	//}
+}
+
 
 void set_node_target(node *n) {
 	pixels = n->texture;
@@ -603,7 +594,6 @@ void main(int argc, char **argv) {
 			}
 		}
 
-		//if (win->rec.x == 200) win->flags &= ~W_visible;
 		memcpy((void *) fb, (void *) buf, sizeof buf);
 	}
 	return;
