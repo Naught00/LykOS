@@ -12,12 +12,12 @@ u8 scaled_image[] = {
 };
 
 u8 font_file[] = {
-#embed "font.ttf"
+#embed "mono.ttf"
 };
 
 
 size_t strlen(const char *s) {
-	int i;
+	int i = 0;
 	while (*s++) i++;
 	return i;
 }
@@ -90,6 +90,7 @@ void _assert(bool b) {
 #define height 1080
 uint32_t *pixels;
 int draw_width = width;
+int draw_height = width;
 
 typedef struct color {
 	uint8_t r, g, b;
@@ -380,11 +381,14 @@ void draw_texture(node *n) {
 void set_node_target(node *n) {
 	pixels = n->texture;
 	draw_width = n->rec.w;
+	draw_height = n->rec.h;
 }
 
 void set_pix_target(uint32_t *p) {
 	pixels = p;
+	//fixme
 	draw_width = width;
+	draw_height = height;
 }
 
 void set_focus(node *n) {
@@ -408,7 +412,7 @@ void bgr_to_rgb(byte *bgr, int w, int h) {
 
 void g8bpp_to_32bpp(u32 *out, u8 *in, int w, int h) {
 	int i, x;
-	size len = w * h;
+	size len = w * h * 4;
 	u8 *outb = (u8 *) out;
 	for (i = 0, x = 0; i < len; i += 4) {
 		byte b = in[x++];
@@ -420,6 +424,57 @@ void g8bpp_to_32bpp(u32 *out, u8 *in, int w, int h) {
 	}
 }
 
+typedef stbtt_fontinfo Font;
+
+Font init_font(u8 *font_file) {
+	Font f;
+	if (!stbtt_InitFont(&f, font_file, 0))
+	{
+	}
+	return f;
+}
+
+void text_draw_string(char *text, int x, int ty, stbtt_fontinfo *font) {
+	u8 *fontbitmap = mmap2(draw_width * draw_height);
+	int bitmapw = draw_width;
+	int line_height = 18;
+	float fscale = stbtt_ScaleForPixelHeight(font, line_height);
+	int ascent, descent, linegap;
+	stbtt_GetFontVMetrics(font, &ascent, &descent, &linegap);
+
+	int i, j;
+	ascent = roundf(ascent * fscale);
+	descent = roundf(descent * fscale);
+	int txt_y = ascent;
+	//lykos_exit();
+	for (i = 0; i < strlen(text); i++) {
+	//	if (text[i] == '\n') {
+	//		txt_y += ascent -  descent + linegap;
+	//		x = 0;
+	//		continue;
+	//	}
+		int ax;
+		int lsb;
+		stbtt_GetCodepointHMetrics(font, text[i], &ax, &lsb);
+
+		int c_x1, c_y1, c_x2, c_y2;
+		stbtt_GetCodepointBitmapBox(font, text[i], fscale, fscale, &c_x1, &c_y1, &c_x2, &c_y2);
+
+		int y = txt_y + c_y1;
+
+		int byteOffset = x + roundf(lsb * fscale) + (y * bitmapw);
+		stbtt_MakeCodepointBitmap(font, (u8 *) fontbitmap + byteOffset, c_x2 - c_x1, c_y2 - c_y1, bitmapw, fscale, fscale, text[i]);
+
+		x += roundf(ax * fscale);
+
+		int kern;
+		kern = stbtt_GetCodepointKernAdvance(font, text[i], text[i + 1]);
+		x += roundf(kern * fscale);
+	}
+	//lykos_exit();
+	g8bpp_to_32bpp(pixels, fontbitmap, draw_width, draw_height);
+	return;
+}
 
 void main(int argc, char **argv) {
 	u32 *fb = mmap_fb();
@@ -452,48 +507,58 @@ void main(int argc, char **argv) {
 	{
 		lykos_exit();
 	}
-	//fix
-	int line_height = 24;
-	float fscale = stbtt_ScaleForPixelHeight(&font, line_height);
-	int ascent, descent, linegap;
-	stbtt_GetFontVMetrics(&font, &ascent, &descent, &linegap);
-	char *word = "Font Test!";
-	int i, x;
 	set_node_target(fontviewer);
 	draw_background(fontviewer, dark_background);
-	ascent = roundf(ascent * fscale);
-	descent = roundf(descent * fscale);
-	for (i = 0, x = 0; i < strlen(word); i++) {
-		/* how wide is this character */
-		int ax;
-		int lsb;
-		stbtt_GetCodepointHMetrics(&font, word[i], &ax, &lsb);
-		/* (Note that each Codepoint call has an alternative Glyph version which caches the work required to lookup the character word[i].) */
-
-		/* get bounding box for character (may be offset to account for chars that dip above or below the line) */
-		int c_x1, c_y1, c_x2, c_y2;
-		stbtt_GetCodepointBitmapBox(&font, word[i], fscale, fscale, &c_x1, &c_y1, &c_x2, &c_y2);
-
-		/* compute y (different characters have different heights) */
-		int y = ascent + c_y1;
-
-		/* render character (stride and offset is important here) */
-		int byteOffset = x + roundf(lsb * fscale) + (y * bitmapw);
-		stbtt_MakeCodepointBitmap(&font, (u8 *) fontbitmap + byteOffset, c_x2 - c_x1, c_y2 - c_y1, bitmapw, fscale, fscale, word[i]);
-
-		/* advance x */
-		x += roundf(ax * fscale);
-
-		/* add kerning */
-		int kern;
-		kern = stbtt_GetCodepointKernAdvance(&font, word[i], word[i + 1]);
-		x += roundf(kern * fscale);
-	}
-	//bgr_to_rgb((u8 *) fontviewer->texture, fontviewer->rec.w, fontviewer->rec.h);
-	g8bpp_to_32bpp(fontviewer->texture, fontbitmap, fontviewer->rec.w, fontviewer->rec.h);
-//	for (int k = 0; k < 100 * 100; k++) {
-//		fontviewer->texture[k] = 0xfffffffff;
+	char *text = "test again";
+	text_draw_string(text, 0, 0, &font);
+	//fix
+//	int line_height = 18;
+//	float fscale = stbtt_ScaleForPixelHeight(&font, line_height);
+//	int ascent, descent, linegap;
+//	stbtt_GetFontVMetrics(&font, &ascent, &descent, &linegap);
+//	//*ascent - *descent + *lineGap
+//	//char *word = "Unicode: año Straße, €100";
+//	//int omega = 0x03A9;
+//	//int word[1] = {omega};
+//	//char *word = "This is a test using stb_truetype.\n Newline";
+//	char *word = "#include <stdio.h>\n\nint main(void) {\n    printf(\"hello\");\n}\nmoretext\nmoretext\noretext";
+//
+//	int i, x;
+//	set_node_target(fontviewer);
+//	draw_background(fontviewer, dark_background);
+//	ascent = roundf(ascent * fscale);
+//	descent = roundf(descent * fscale);
+//	int txt_y = ascent;
+//	for (i = 0, x = 0; i < strlen(word); i++) {
+//		if (word[i] == '\n') {
+//			txt_y += ascent -  descent + linegap;
+//			x = 0;
+//			continue;
+//		}
+//		int ax;
+//		int lsb;
+//		stbtt_GetCodepointHMetrics(&font, word[i], &ax, &lsb);
+//
+//		int c_x1, c_y1, c_x2, c_y2;
+//		stbtt_GetCodepointBitmapBox(&font, word[i], fscale, fscale, &c_x1, &c_y1, &c_x2, &c_y2);
+//
+//		int y = txt_y + c_y1;
+//
+//		int byteOffset = x + roundf(lsb * fscale) + (y * bitmapw);
+//		stbtt_MakeCodepointBitmap(&font, (u8 *) fontbitmap + byteOffset, c_x2 - c_x1, c_y2 - c_y1, bitmapw, fscale, fscale, word[i]);
+//
+//		x += roundf(ax * fscale);
+//
+//		int kern;
+//		kern = stbtt_GetCodepointKernAdvance(&font, word[i], word[i + 1]);
+//		x += roundf(kern * fscale);
 //	}
+//	//bgr_to_rgb((u8 *) fontviewer->texture, fontviewer->rec.w, fontviewer->rec.h);
+//	g8bpp_to_32bpp(fontviewer->texture, fontbitmap, fontviewer->rec.w, fontviewer->rec.h);
+////	for (int k = 0; k < 100 * 100; k++) {
+////		fontviewer->texture[k] = 0xfffffffff;
+////	}
+//
 	set_pix_target(buf);
 
 
