@@ -4,6 +4,8 @@
 #include "keys.h"
 #include "mn.h"
 
+static inline i64 exec(char *file_name) { return syscall1(6, (u64)file_name);}
+
 u8 img_buffer[] = {
 #embed "snow.jpg"
 };
@@ -753,8 +755,8 @@ void main(int argc, char **argv) {
 //		}
 		windows[focused_window]->rec.x += diff.x;
 		windows[focused_window]->rec.y += diff.y;
-		//imgviewer->rec.x += 1;
-		//imgviewer->rec.y += 1;
+		imgviewer->rec.x += 1;
+		imgviewer->rec.y += 1;
 		
 		node *bar = window("bar", 0, 0, width, 20, W_visible | N_title);
 		set_node_target(bar);
