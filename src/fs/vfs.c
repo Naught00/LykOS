@@ -87,7 +87,7 @@ void *read_file(kstring *path, u64 *out_size) {
     bool file_found =
         is_file && (strncmp(file_name, path->buf, path->len) == 0);
     if (file_found) {
-      terminal_fstring("File found! :{str}\n", file_name);
+      // terminal_fstring("File found! :{str}\n", file_name);
 
       *out_size = file.file_size;
       char *file_buf = kalloc(file.file_size);
