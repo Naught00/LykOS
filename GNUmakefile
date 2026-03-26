@@ -31,7 +31,7 @@ ifeq ($(TOOLCHAIN),llvm)
 endif
 
 # User controllable C flags.
-CFLAGS := -g -O3 -pipe -I. -Wstrict-prototypes
+CFLAGS := -g -O3 -pipe -I. -Wstrict-prototypes -DSERIAL_ENABLED=$$SERIAL_ENABLED
 
 # User controllable C preprocessor flags. We set none by default.
 CPPFLAGS :=

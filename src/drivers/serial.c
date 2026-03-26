@@ -4,9 +4,10 @@
 #include <stdint.h>
 
 #define COM1 0x3F8 // Base I/O port for COM1
-#define SERIAL_ENABLED 1
 
-// #define SERIAL_ENABLED
+#ifndef SERIAL_ENABLED
+#define SERIAL_ENABLED 1
+#endif  SERIAL_ENABLED
 // Initialise the first serial port (COM1)
 void serial_init(void) {
   outb(COM1 + 1, 0x00); // Disable interrupts
@@ -24,14 +25,16 @@ static int serial_is_transmit_empty(void) { return inb(COM1 + 5) & 0x20; }
 // Write a single character to COM1
 //
 void serial_write_char(char c) {
+#if SERIAL_ENABLED == 1
   while (serial_is_transmit_empty() == 0)
     ; // wait until ready
   outb(COM1, c);
+#endif
 }
 
 // Write a null-terminated string to COM1
 void serial_write(const char *str) {
-#ifdef SERIAL_ENABLED
+#if SERIAL_ENABLED == 1
   while (*str) {
     if (*str == '\n') {
       serial_write_char('\r');
@@ -43,7 +46,7 @@ void serial_write(const char *str) {
 }
 
 void serial_writeln(const char *s) {
-#ifdef SERIAL_ENABLED
+#if SERIAL_ENABLED == 1
   serial_write(s);
   serial_write("\r\n");
 #endif

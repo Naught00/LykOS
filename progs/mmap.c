@@ -1,7 +1,7 @@
 #include "lykosapi.h"
 
 void main(void) {
-  u64 *mem = (u64 *)mmap2(4097);
+  u64 *mem = (u64 *)mmap(4097);
   u64 count = 8192 / 8;
 
   for (u64 i = 0; i < count; i++)

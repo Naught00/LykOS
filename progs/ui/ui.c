@@ -1,10 +1,9 @@
-#include "../lykosapi.h"
+#include "syscalls.h"
+#include <math.h>
 #include "../../src/vendor/font.h"
 #include <ctype.h>
 #include "keys.h"
 #include "mn.h"
-
-static inline i64 exec(char *file_name) { return syscall1(6, (u64)file_name);}
 
 u8 img_buffer[] = {
 #embed "snow.jpg"
@@ -66,20 +65,7 @@ void _assert(bool b) {
 #include "kalloc.h"
 #include "kalloc.c"
 
-#define STBI_NO_STDIO
-#define STBI_NO_THREAD_LOCALS
-#define STB_IMAGE_IMPLEMENTATION
-#define STB_ASSERT(x) _assert(x)
-#define STBI_MALLOC kalloc
-#define STBI_REALLOC krealloc
-#define STBI_FREE kfree
 #include "stb_image.h"
-
-#define STB_TRUETYPE_IMPLEMENTATION
-#define STBTT_assert(x) _assert(x)
-#define STBTT_malloc(x, u) kalloc(x)
-//#define STBTT_realloc krealloc
-#define STBTT_free(x, u) kfree(x)
 #include "stb_truetype.h"
 
 #define RED 0xFF0000
@@ -155,12 +141,13 @@ struct node {
 	unsigned int flags;
 };
 
+u32 *client_fbs[10];
 
-node nodes[10];
+node nodes[20];
 int node_c = 0;
-node *windows[10];
+node *windows[20];
 int win_c = 0;
-int focused_window;
+int focused_window = 1;
 
 void draw_pixel(int x, int y, color c) {
 	if (x < 0 || y < 0 || x >= width || y >= height) return;
@@ -340,7 +327,7 @@ node *text_input(int id, node *parent, char *base, rectangle rec, unsigned int f
 void draw_texture_pix(u32 *texture, int ox, int oy, int w, int h) {
 	bool same_size = w == draw_width && h == draw_height;
 	if (same_size) {
-		memcpy(pixels, texture, draw_width * height * sizeof(u32));
+		memcpy(pixels, texture, draw_width * draw_height * sizeof(u32));
 		return;
 	}
 	int x, y, x1, y1;
@@ -519,14 +506,42 @@ void itxt(char *text, int x, int ty, stbtt_fontinfo *font) {
 
 #include "3d.c"
 
-void main(int argc, char **argv) {
-	exec("sleep.elf");
-	exec("sleep.elf");
-	exec("sleep.elf");
-	exec("sleep.elf");
-	exec("sleep.elf");
-	u32 *fb = mmap_fb();
+void wallpaper() {
 	int iw, ih, ic;
+
+	u8 *image = stbi_load_from_memory(img_buffer, sizeof img_buffer, &iw, &ih, &ic, 4);
+	bgr_to_rgb(image, iw, ih);
+	node *surface = window("surface", 0, 0, iw, ih, W_visible | N_title);
+	set_node_target(surface);
+	draw_texture_pix((u32 *)image, 0, 0, iw, ih);
+	set_pix_target(buf);
+}
+
+void main(int argc, char **argv) {
+	u32 *fb = mmap_fb();
+	wallpaper();
+	int iw, ih, ic;
+
+	int region = shm_create(640 * 480 * 4, true);
+	if (region < 0) {
+		lykos_exit();
+	}
+
+	u64 sz;
+	u32 *p = shm_map(region, &sz);
+	if (!p) lykos_exit();
+
+//	char *hi = "hello from server\n";
+//	strcpy(p, hi);
+	exec("client.elf");
+	sleep(1000);
+	node *client = window("Client", 400, 700, 640, 480, defwinflags);
+	//memset(client->texture, 0xffffff, 640 * 480 * 4);
+	//memcpy(client->texture, p, 640 * 480 * 4);
+	set_node_target(client);
+	draw_texture_pix(p, 0, 0, 640, 480);
+	set_pix_target(buf);
+
 
 	u8 *scaled = stbi_load_from_memory(scaled_image, sizeof scaled_image, &iw, &ih, &ic, 4);
 	bgr_to_rgb(scaled, iw, ih);
@@ -536,15 +551,6 @@ void main(int argc, char **argv) {
 	draw_texture_pix((u32 *)scaled, 0, 0, iw, ih);
 	draw_width = width;
 
-	u8 *image = stbi_load_from_memory(img_buffer, sizeof img_buffer, &iw, &ih, &ic, 4);
-	bgr_to_rgb(image, iw, ih);
-	node *surface = window("surface", 0, 0, iw, ih, W_visible | N_title);
-	set_pix_target(surface->texture);
-	draw_width = iw;
-	draw_texture_pix((u32 *)image, 0, 0, iw, ih);
-
-	draw_width = width;
-	pixels = buf;
 
 
 	node *fontviewer = window("stb_truetype", 300, 100, 512, 512, defwinflags);
@@ -694,14 +700,14 @@ void main(int argc, char **argv) {
 			}
 			set_pix_target(buf);
 		}
-		node *win3 = window("3D", 200, 300, 500, 300, defwinflags);
-		if (win3->flags & W_visible)
-		{
-			set_node_target(win3);
-			draw_background(win3, dark_background);
-			//render3d();
-			set_pix_target(buf);
-		}
+//		node *win3 = window("3D", 200, 300, 500, 300, defwinflags);
+//		if (win3->flags & W_visible)
+//		{
+//			set_node_target(win3);
+//			draw_background(win3, dark_background);
+//			//render3d();
+//			set_pix_target(buf);
+//		}
 
 		node *win = window("mterm", 100, 100, 500, 300, defwinflags);
 		if (win->flags & W_visible)
@@ -729,34 +735,34 @@ void main(int argc, char **argv) {
 			set_pix_target(buf);
 		}
 
-//		node *win2 = window("xd", 400, 600, 500, 300, defwinflags);
-//		if (win2->flags & W_visible)
-//		{
-//			set_node_target(win2);
-//			draw_background(win2, dark_background);
-//			//draw_texture(surface);
-//			char *a;
-//			node *n;
-//			n = text_input(2, win2, "", win2->rec, 0);
-//			a = n->buffer;
-//
-//			int x= 0;
-//			int y= 0;
-//			while (*a++) {
-//				if (*a == '\n') {
-//					y += 8;
-//					x = 0;
-//				} else {
-//					draw_char_scaled(*a, x, y, WHITE, 1);
-//					x+=8;
-//				}
-//			}
-//			set_pix_target(buf);
-//		}
+		node *win2 = window("xd", 400, 600, 500, 300, defwinflags);
+		if (win2->flags & W_visible)
+		{
+			set_node_target(win2);
+			draw_background(win2, dark_background);
+			//draw_texture(surface);
+			char *a;
+			node *n;
+			n = text_input(2, win2, "", win2->rec, 0);
+			a = n->buffer;
+
+			int x= 0;
+			int y= 0;
+			while (*a++) {
+				if (*a == '\n') {
+					y += 8;
+					x = 0;
+				} else {
+					draw_char_scaled(*a, x, y, WHITE, 1);
+					x+=8;
+				}
+			}
+			set_pix_target(buf);
+		}
 		windows[focused_window]->rec.x += diff.x;
 		windows[focused_window]->rec.y += diff.y;
-		imgviewer->rec.x += 1;
-		imgviewer->rec.y += 1;
+		//imgviewer->rec.x += 1;
+		//imgviewer->rec.y += 1;
 		
 		node *bar = window("bar", 0, 0, width, 20, W_visible | N_title);
 		set_node_target(bar);
@@ -774,25 +780,27 @@ void main(int argc, char **argv) {
 					np->buffer[np->buff_i++] = evbuf[x];
 				}
 			}
-
-			if (np->flags & W_visible && np->flags & N_title && !has_focus) {
-				draw_texture(np);
-				if (np->flags & W_draw_decoration)
-					draw_decoration(np);
-				if (np->flags & W_draw_border)
-					draw_border(np);
-			}
 		}
-		for (i = 0; i < node_c; i++) {
-			node *np = &nodes[i];
-			bool has_focus = np->parent == windows[focused_window];
-			if (np->flags & W_visible && np->flags & N_title && has_focus) {
-				draw_texture(np);
-				if (np->flags & W_draw_decoration)
-					draw_decoration(np);
-				if (np->flags & W_draw_border)
-					draw_border(np);
-			}
+		//fixme drawstack
+		for (i = 0; i < win_c; i++) {
+			node *np = windows[i];
+			if (!(np->flags & W_visible))
+				continue;
+
+			draw_texture(np);
+			if (np->flags & W_draw_decoration)
+				draw_decoration(np);
+			if (np->flags & W_draw_border)
+				draw_border(np);
+		}
+
+		node *np = windows[focused_window];
+		if (np->flags & W_visible) {
+			draw_texture(np);
+			if (np->flags & W_draw_decoration)
+				draw_decoration(np);
+			if (np->flags & W_draw_border)
+				draw_border(np);
 		}
 
 		memcpy((void *) fb, (void *) buf, sizeof buf);
