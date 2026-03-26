@@ -104,6 +104,17 @@ typedef struct vector2 {
         int y;
 } vector2;
 
+typedef struct vector2f {
+	float x;
+        float y;
+} vector2f;
+
+typedef struct vector3f {
+	float x;
+        float y;
+        float z;
+} vector3f;
+
 typedef struct rectangle {
 	int x;
 	int y; 
@@ -325,6 +336,11 @@ node *text_input(int id, node *parent, char *base, rectangle rec, unsigned int f
 	return np;
 }
 void draw_texture_pix(u32 *texture, int ox, int oy, int w, int h) {
+	bool same_size = w == draw_width && h == draw_height;
+	if (same_size) {
+		memcpy(pixels, texture, draw_width * height * sizeof(u32));
+		return;
+	}
 	int x, y, x1, y1;
 	x1 = 0;
 	y1 = 0;
@@ -434,7 +450,29 @@ Font init_font(u8 *font_file) {
 	return f;
 }
 
-void text_draw_string(char *text, int x, int ty, stbtt_fontinfo *font) {
+u8 *make_bitmap() {
+	stbtt_bakedchar cdata[96]; // ASCII 32..126 is 95 glyphs
+	u8 *bitmap = mmap2(512*512);
+	stbtt_BakeFontBitmap(font_file, 0, 32.0, bitmap, 512, 512, 32, 96, cdata);
+	char *text = "test";
+	float x = 0;
+	float y = 0;
+	while (*text) {
+		if (*text >= 32 && *text < 128) {
+			stbtt_aligned_quad q;
+			stbtt_GetBakedQuad(cdata, 512,512, *text-32, &x,&y,&q,1);//1=opengl & d3d10+,0=d3d9
+									
+			//glTexCoord2f(q.s0,q.t0); glVertex2f(q.x0,q.y0);
+			//glTexCoord2f(q.s1,q.t0); glVertex2f(q.x1,q.y0);
+			//glTexCoord2f(q.s1,q.t1); glVertex2f(q.x1,q.y1);
+			//glTexCoord2f(q.s0,q.t1); glVertex2f(q.x0,q.y1);
+
+		}
+		++text;
+	}
+	return bitmap;
+}
+void itxt(char *text, int x, int ty, stbtt_fontinfo *font) {
 	u8 *fontbitmap = mmap2(draw_width * draw_height);
 	int bitmapw = draw_width;
 	int line_height = 18;
@@ -446,13 +484,15 @@ void text_draw_string(char *text, int x, int ty, stbtt_fontinfo *font) {
 	ascent = roundf(ascent * fscale);
 	descent = roundf(descent * fscale);
 	int txt_y = ascent;
-	//lykos_exit();
+	for (j = 0; j < ty; j++) {
+		txt_y += ascent - descent + linegap;
+	}
 	for (i = 0; i < strlen(text); i++) {
-	//	if (text[i] == '\n') {
-	//		txt_y += ascent -  descent + linegap;
-	//		x = 0;
-	//		continue;
-	//	}
+		if (text[i] == '\n') {
+			txt_y += ascent -  descent + linegap;
+			x = 0;
+			continue;
+		}
 		int ax;
 		int lsb;
 		stbtt_GetCodepointHMetrics(font, text[i], &ax, &lsb);
@@ -471,12 +511,18 @@ void text_draw_string(char *text, int x, int ty, stbtt_fontinfo *font) {
 		kern = stbtt_GetCodepointKernAdvance(font, text[i], text[i + 1]);
 		x += roundf(kern * fscale);
 	}
-	//lykos_exit();
 	g8bpp_to_32bpp(pixels, fontbitmap, draw_width, draw_height);
 	return;
 }
 
+#include "3d.c"
+
 void main(int argc, char **argv) {
+	exec("sleep.elf");
+	exec("sleep.elf");
+	exec("sleep.elf");
+	exec("sleep.elf");
+	exec("sleep.elf");
 	u32 *fb = mmap_fb();
 	int iw, ih, ic;
 
@@ -499,7 +545,7 @@ void main(int argc, char **argv) {
 	pixels = buf;
 
 
-	node *fontviewer = window("stb_truetype", 300, 100, 530, 300, defwinflags);
+	node *fontviewer = window("stb_truetype", 300, 100, 512, 512, defwinflags);
 	stbtt_fontinfo font;
 	u8 *fontbitmap = mmap2(fontviewer->rec.w * fontviewer->rec.h);
 	int bitmapw = fontviewer->rec.w;
@@ -509,8 +555,10 @@ void main(int argc, char **argv) {
 	}
 	set_node_target(fontviewer);
 	draw_background(fontviewer, dark_background);
-	char *text = "test again";
-	text_draw_string(text, 0, 0, &font);
+	char *text = "test again\nnewline";
+	u8 *bitmap = make_bitmap();
+	g8bpp_to_32bpp(fontviewer->texture, bitmap, fontviewer->rec.w, fontviewer->rec.h);
+	//text_draw_string(text, 0, 0, &font);
 	//fix
 //	int line_height = 18;
 //	float fscale = stbtt_ScaleForPixelHeight(&font, line_height);
@@ -644,6 +692,15 @@ void main(int argc, char **argv) {
 			}
 			set_pix_target(buf);
 		}
+		node *win3 = window("3D", 200, 300, 500, 300, defwinflags);
+		if (win3->flags & W_visible)
+		{
+			set_node_target(win3);
+			draw_background(win3, dark_background);
+			//render3d();
+			set_pix_target(buf);
+		}
+
 		node *win = window("mterm", 100, 100, 500, 300, defwinflags);
 		if (win->flags & W_visible)
 		{
@@ -651,7 +708,8 @@ void main(int argc, char **argv) {
 			draw_background(win, dark_background);
 			char *prompt = "/user> ";
 			int prompt_len = strlen(prompt) * 8;
-			draw_string(prompt, 0, 0, WHITE);
+			//draw_string(prompt, 0, 0, WHITE);
+			//text_draw_string(prompt, 0, 0, &font);
 			char *a;
 			node *n;
 			n = text_input(1, win, "", win->rec, N_focused);
@@ -659,49 +717,44 @@ void main(int argc, char **argv) {
 
 			int x = prompt_len;
 			int y = 0;
-			while (*a) {
-				if (*a == '\n') {
-					y += 8;
-					x = 0;
-					draw_string(prompt, x, y, WHITE);
-					x += prompt_len;
-				} else {
-					draw_char_scaled(*a, x, y, WHITE, 1);
-					x += 8;
-				}
-				*a++;
-			}
+			//text_draw_string(a, x, 0, &font);
+			//while (*a) {
+//					draw_char_scaled(*a, x, y, WHITE, 1);
+//					x += 8;
+//				}
+//				*a++;
+			//}
 			set_pix_target(buf);
 		}
 
-		node *win2 = window("xd", 400, 600, 500, 300, defwinflags);
-		if (win2->flags & W_visible)
-		{
-			set_node_target(win2);
-			draw_background(win2, dark_background);
-			//draw_texture(surface);
-			char *a;
-			node *n;
-			n = text_input(2, win2, "", win2->rec, 0);
-			a = n->buffer;
-
-			int x= 0;
-			int y= 0;
-			while (*a++) {
-				if (*a == '\n') {
-					y += 8;
-					x = 0;
-				} else {
-					draw_char_scaled(*a, x, y, WHITE, 1);
-					x+=8;
-				}
-			}
-			set_pix_target(buf);
-		}
+//		node *win2 = window("xd", 400, 600, 500, 300, defwinflags);
+//		if (win2->flags & W_visible)
+//		{
+//			set_node_target(win2);
+//			draw_background(win2, dark_background);
+//			//draw_texture(surface);
+//			char *a;
+//			node *n;
+//			n = text_input(2, win2, "", win2->rec, 0);
+//			a = n->buffer;
+//
+//			int x= 0;
+//			int y= 0;
+//			while (*a++) {
+//				if (*a == '\n') {
+//					y += 8;
+//					x = 0;
+//				} else {
+//					draw_char_scaled(*a, x, y, WHITE, 1);
+//					x+=8;
+//				}
+//			}
+//			set_pix_target(buf);
+//		}
 		windows[focused_window]->rec.x += diff.x;
 		windows[focused_window]->rec.y += diff.y;
-		imgviewer->rec.x += 1;
-		imgviewer->rec.y += 1;
+		//imgviewer->rec.x += 1;
+		//imgviewer->rec.y += 1;
 		
 		node *bar = window("bar", 0, 0, width, 20, W_visible | N_title);
 		set_node_target(bar);

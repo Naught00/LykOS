@@ -22,13 +22,11 @@ void serial_init(void) {
 static int serial_is_transmit_empty(void) { return inb(COM1 + 5) & 0x20; }
 
 // Write a single character to COM1
+//
 void serial_write_char(char c) {
-
-#ifdef SERIAL_ENABLED
   while (serial_is_transmit_empty() == 0)
     ; // wait until ready
   outb(COM1, c);
-#endif
 }
 
 // Write a null-terminated string to COM1

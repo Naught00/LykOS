@@ -1,3 +1,7 @@
 #include "lykosapi.h"
 
-void main(void) { sleep(3000); }
+void main(void) { 
+	while (1) {
+		sleep(3000);
+	}
+}

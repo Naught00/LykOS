@@ -91,6 +91,9 @@ void _assert(bool) {
 stbi__context s;
 
 int main(void) {
+	float angle = 3.14;
+	float c = cosf(angle);
+
 	int iw, ih, ic;
 	u8 *image = stbi_load_from_memory(img_buffer, sizeof img_buffer, &iw, &ih, &ic, 0);
 //	stbi__start_mem(&s,img_buffer,sizeof img_buffer);

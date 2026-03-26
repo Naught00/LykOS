@@ -131,9 +131,6 @@ void keyboard_process(void) {
 
       u8 next = (key_event_head + 1) % KEYBOARD_BUFFER_SIZE;
       if (next != key_event_tail) {
-        if (key == KEY_ESCAPE)
-          terminal_fstring("ESCAPE");
-
         key_event_buffer[key_event_head] = (KeyEvent){key, mods};
         key_event_head = next;
       }
