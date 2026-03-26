@@ -700,14 +700,14 @@ void main(int argc, char **argv) {
 			}
 			set_pix_target(buf);
 		}
-//		node *win3 = window("3D", 200, 300, 500, 300, defwinflags);
-//		if (win3->flags & W_visible)
-//		{
-//			set_node_target(win3);
-//			draw_background(win3, dark_background);
-//			//render3d();
-//			set_pix_target(buf);
-//		}
+		node *win3 = window("3D", 200, 300, 500, 300, defwinflags);
+		if (win3->flags & W_visible)
+		{
+			set_node_target(win3);
+			draw_background(win3, dark_background);
+			render3d();
+			set_pix_target(buf);
+		}
 
 		node *win = window("mterm", 100, 100, 500, 300, defwinflags);
 		if (win->flags & W_visible)
