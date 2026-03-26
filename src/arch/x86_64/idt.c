@@ -196,5 +196,20 @@ void isr_syscall(interrupt_frame *frame) {
   case 6:
     frame->rax = sys_exec(frame);
     break;
+  case 7:
+    frame->rax = sys_mbox_create(frame);
+    break;
+  case 8:
+    frame->rax = sys_mbox_send(frame);
+    break;
+  case 9:
+    frame->rax = sys_mbox_receive(frame);
+    break;
+  case 10:
+    frame->rax = sys_shm_create(frame);
+    break;
+  case 11:
+    frame->rax = sys_shm_map(frame);
+    break;
   }
 }

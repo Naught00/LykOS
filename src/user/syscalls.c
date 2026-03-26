@@ -4,6 +4,8 @@
 #include "drivers/serial.h"
 #include "graphics/draw.h"
 #include "mem/mem.h"
+#include "proc/mailbox.h"
+#include "proc/shm.h"
 #include "proc/task.h"
 #include "terminal.h"
 #include "user/exec.h"
@@ -113,4 +115,31 @@ i64 sys_exec(interrupt_frame *frame) {
   char *file_name = (char *)frame->rdi;
   i64 ret = exec(file_name);
   return ret;
+}
+
+i64 sys_mbox_create(interrupt_frame *frame) {
+  u64 requested_id = frame->rdi;
+  return mbox_create(requested_id);
+}
+
+i64 sys_mbox_send(interrupt_frame *frame) {
+  serial_writeln("in sysmboxsend");
+  u64 id = frame->rdi;
+  char *data = (char *)frame->rsi;
+  u64 data_len = frame->rdx;
+  return mbox_send(id, data, data_len);
+}
+
+i64 sys_mbox_receive(interrupt_frame *frame) {
+  u64 id = frame->rdi;
+  MailboxMessage *out = (MailboxMessage *)frame->rsi;
+  return mbox_receive(id, out);
+}
+
+i32 sys_shm_create(interrupt_frame *frame) {
+  return shm_create(frame->rdi, frame->rsi);
+}
+
+u64 sys_shm_map(interrupt_frame *frame) {
+  return shm_map(frame->rdi, (u64 *)frame->rsi);
 }
