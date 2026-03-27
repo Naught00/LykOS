@@ -534,7 +534,7 @@ void handle_open(wm_msg *msg) {
 	char *title = mmap2(MAX_TITLE);
 	strcpy(title, msg->title);
 	node *win = window(title, msg->x, msg->y, msg->w, msg->h, msg->flags);
-	int shmid = shm_create(msg->w * msg->h * BPP, true);
+	int shmid = shm_create(msg->w * msg->h * BPP + 4, true);
 	if (shmid < 0) {
 		lykos_exit();
 	}
@@ -550,7 +550,11 @@ void handle_open(wm_msg *msg) {
 	wm_msg response;
 	response.type = WM_ok;
 	response.shm_id = shmid;
-	mbox_send(msg->mailbox, &response, sizeof response);
+	int ret = mbox_send(msg->mailbox, &response, sizeof response);
+	if (ret < 0)  {
+		write("joever\n");
+		lykos_exit();
+	}
 	return;
 }
 
@@ -688,7 +692,7 @@ void main(int argc, char **argv) {
 	wm_msg msg;
 	int i, j;
 	for (;;) {
-		while (mbox_receive(mboxid, &out) > 0) {
+		while (mbox_receive(mboxid, &out)) {
 			msg = *(wm_msg *)out.data;
 			switch (msg.type) {
 			case WM_open:
@@ -702,6 +706,7 @@ void main(int argc, char **argv) {
 				set_node_target(c->win);
 				draw_texture_pix(c->buf->surface, 0, 0, c->win->rec.w, c->win->rec.h);
 				c->buf->commited = 0;
+				write("commiting\n");
 			}
 		}
 		set_pix_target(buf);

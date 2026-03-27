@@ -31,16 +31,16 @@ int main(void) {
 	mbox_send(0, &msg, sizeof(wm_msg));
 	MailboxMessage out;
 	while (1) {
-		while (mbox_receive(mboxid, &out) < 0);
+		while (mbox_receive(mboxid, &out));
 		msg = *(wm_msg *) out.data;
-		if (msg.type != WM_ok) continue;
-		write("hello");
+		if (msg.type == WM_ok) break;
 	}
+	write("got it");
 
 	size_t sz;
 	shared_buffer *buf = shm_map(msg.shm_id, &sz);
 	int i;
-	for (i = 0; i < 300*300 * 4; i++) {
+	for (i = 0; i < 300*300; i++) {
 		buf->surface[i] = 0xff0000;
 	}
 	buf->commited = 1;

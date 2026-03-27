@@ -30,33 +30,43 @@ typedef struct {
 // a = rax, D = rdi, S = rsi, d = rdx
 // syscall with 0 args
 static inline u64 syscall0(u64 num) {
-  int64_t ret;
-  asm volatile("int $0x80" : "=a"(ret) : "a"(num));
-  return ret;
+    int64_t ret;
+    asm volatile("int $0x80"
+        : "=a"(ret)
+        : "a"(num)
+        : "rcx", "r11", "memory");
+    return ret;
 }
 
 // 1 arg
-static inline u64 syscall1(uint64_t num, uint64_t arg1) {
-  int64_t ret;
-  asm volatile("int $0x80" : "=a"(ret) : "a"(num), "D"(arg1));
-  return ret;
+static inline i64 syscall1(u64 num, u64 arg1) {
+    int64_t ret;
+    asm volatile("int $0x80"
+        : "=a"(ret)
+        : "a"(num), "D"(arg1)
+        : "rcx", "r11", "memory");
+    return ret;
 }
 
 // 2 args
-static inline u64 syscall2(uint64_t num, uint64_t arg1, uint64_t arg2) {
-  int64_t ret;
-  asm volatile("int $0x80" : "=a"(ret) : "a"(num), "D"(arg1), "S"(arg2));
-  return ret;
+static inline i64 syscall2(u64 num, u64 arg1, u64 arg2) {
+    int64_t ret;
+    asm volatile("int $0x80"
+        : "=a"(ret)
+        : "a"(num), "D"(arg1), "S"(arg2)
+        : "rcx", "r11", "memory");
+    return ret;
 }
 
 // 3 args
-static inline u64 syscall3(uint64_t num, uint64_t arg1, uint64_t arg2,
-                               uint64_t arg3) {
-  int64_t ret;
-  asm volatile("int $0x80"
-               : "=a"(ret)
-               : "a"(num), "D"(arg1), "S"(arg2), "d"(arg3));
-  return ret;
+static inline i64 syscall3(u64 num, u64 arg1, u64 arg2,
+                               u64 arg3) {
+    int64_t ret;
+    asm volatile("int $0x80"
+        : "=a"(ret)
+        : "a"(num), "D"(arg1), "S"(arg2), "d"(arg3)
+        : "rcx", "r11", "memory");
+    return ret;
 }
 
 static inline i64 lykos_exit(void) { return syscall0(SYS_EXIT); }
@@ -75,7 +85,7 @@ static inline void *mmap2(u64 size) { return (void *) syscall1(SYS_MMAP, size);}
 
 static inline i64 exec(char *file_name) { return syscall1(SYS_EXEC, (u64)file_name);}
 
-static inline i64 mbox_create(u64 id) { return syscall1(SYS_MAILBOX_CREATE, id); }
+static inline i64 mbox_create(i64 id) { return syscall1(SYS_MAILBOX_CREATE, id); }
 
 static inline i64 mbox_send(u64 id, void *data, u64 data_len) { return syscall3(SYS_MAILBOX_SEND, id, (u64)data, data_len); }
 
