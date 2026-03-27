@@ -30,7 +30,7 @@ i64 mbox_create(i64 requested_id) {
       .count = 0,
   };
 
-  return 1;
+  return requested_id;
 }
 i64 mbox_send(u64 mailbox_id, char *data, u64 data_len) {
   if (data_len > MAILBOX_MESSAGE_SIZE) {
