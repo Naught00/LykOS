@@ -1,9 +1,12 @@
+
 #include "syscalls.h"
 #include <math.h>
 #include "../../src/vendor/font.h"
 #include <ctype.h>
 #include "keys.h"
 #include "mn.h"
+
+#include "protocol.h"
 
 u8 img_buffer[] = {
 #embed "snow.jpg"
@@ -76,6 +79,7 @@ void _assert(bool b) {
 
 #define width 1920
 #define height 1080
+#define BPP 4
 uint32_t *pixels;
 int draw_width = width;
 int draw_height = width;
@@ -111,19 +115,19 @@ typedef struct rectangle {
 } rectangle;
 
 enum node_flags {
-	W_visible = 0x1,
-	W_draw_decoration = 0x2,
-	N_title = 0x4,
-	N_text = 0x8,
-	N_focused = 0x10,
-	W_draw_border = 0x20,
+	N_title = 0x10,
+	N_text = 0x20,
+	N_focused = 0x40,
 };
 
 typedef struct node node;
 struct node {
+	int id;
 	union {
-		char *title;
-		int id;
+		struct {
+			char *title;
+			int window_id;
+		}
 	};
 	rectangle rec;
 	union {
@@ -141,7 +145,14 @@ struct node {
 	unsigned int flags;
 };
 
-u32 *client_fbs[10];
+
+typedef struct Client {
+	shared_buffer *buf;
+	node *win;
+} Client;
+
+Client clients[10];
+int clientc = 0;
 
 node nodes[20];
 int node_c = 0;
@@ -303,9 +314,11 @@ node *window(char *title, int x, int y, int w, int h, unsigned int flags) {
 	node *np;
 	if (!node_exists(title, &np)) {
 		np = &nodes[node_c++];
+		np->id = node_c - 1;
 		np->title = title;
+		np->window_id = win_c;
 		np->rec = (rectangle){x, y, w, h};
-		np->flags = flags;
+		np->flags = flags | N_title;
 		np->parent = np;
 		windows[win_c++] = np;
 	}
@@ -517,30 +530,67 @@ void wallpaper() {
 	set_pix_target(buf);
 }
 
+void handle_open(wm_msg *msg) {
+	char *title = mmap2(MAX_TITLE);
+	strcpy(title, msg->title);
+	node *win = window(title, msg->x, msg->y, msg->w, msg->h, msg->flags);
+	int shmid = shm_create(msg->w * msg->h * BPP, true);
+	if (shmid < 0) {
+		lykos_exit();
+	}
+
+	u64 sz;
+	shared_buffer *buf = shm_map(shmid, &sz);
+	buf->commited = 0;
+	clients[clientc].buf = buf;
+	clients[clientc].win = win;
+	clientc++;
+
+	//respond
+	wm_msg response;
+	response.type = WM_ok;
+	response.shm_id = shmid;
+	mbox_send(msg->mailbox, &response, sizeof response);
+	return;
+}
+
+void handle_msg(wm_msg *msg) {
+	switch (msg->type) {
+	case WM_open:
+		break;
+	}
+}
+
 void main(int argc, char **argv) {
 	u32 *fb = mmap_fb();
 	wallpaper();
 	int iw, ih, ic;
 
-	int region = shm_create(640 * 480 * 4, true);
-	if (region < 0) {
+	int mboxid = 0;
+	int err = mbox_create(mboxid); 
+	if (err < 0) {
 		lykos_exit();
 	}
 
-	u64 sz;
-	u32 *p = shm_map(region, &sz);
-	if (!p) lykos_exit();
-
-//	char *hi = "hello from server\n";
-//	strcpy(p, hi);
+//	int region = shm_create(640 * 480 * 4, true);
+//	if (region < 0) {
+//		lykos_exit();
+//	}
+//
+//	u64 sz;
+//	u32 *p = shm_map(region, &sz);
+//	if (!p) lykos_exit();
+//
+////	char *hi = "hello from server\n";
+////	strcpy(p, hi);
 	exec("client.elf");
 	sleep(1000);
-	node *client = window("Client", 400, 700, 640, 480, defwinflags);
-	//memset(client->texture, 0xffffff, 640 * 480 * 4);
-	//memcpy(client->texture, p, 640 * 480 * 4);
-	set_node_target(client);
-	draw_texture_pix(p, 0, 0, 640, 480);
-	set_pix_target(buf);
+//	node *client = window("Client", 400, 700, 640, 480, defwinflags);
+//	//memset(client->texture, 0xffffff, 640 * 480 * 4);
+//	//memcpy(client->texture, p, 640 * 480 * 4);
+//	set_node_target(client);
+//	draw_texture_pix(p, 0, 0, 640, 480);
+//	set_pix_target(buf);
 
 
 	u8 *scaled = stbi_load_from_memory(scaled_image, sizeof scaled_image, &iw, &ih, &ic, 4);
@@ -633,7 +683,28 @@ void main(int argc, char **argv) {
 //	window->flags |= W_visible;
 //	static u32 term_buf[500 * 300];
 //	window.buf = term_buf;
+	
+	MailboxMessage out;
+	wm_msg msg;
+	int i, j;
 	for (;;) {
+		while (mbox_receive(mboxid, &out) > 0) {
+			msg = *(wm_msg *)out.data;
+			switch (msg.type) {
+			case WM_open:
+				handle_open(&msg);
+				break;
+			}
+		}
+		for (j = 0; j < clientc; j++) {
+			Client *c = &clients[j];
+			if (c->buf->commited) {
+				set_node_target(c->win);
+				draw_texture_pix(c->buf->surface, 0, 0, c->win->rec.w, c->win->rec.h);
+				c->buf->commited = 0;
+			}
+		}
+		set_pix_target(buf);
 		node *launcher = window("launcher", width / 2 - 250, height / 2 - 10, 500, 20, W_visible | N_title | W_draw_border);
 		//for (int i = 0; i < width*height; i++) {
 		//	buf[i] = BG;
@@ -688,7 +759,7 @@ void main(int argc, char **argv) {
 			node *n;
 			n = text_input(3, launcher, "", launcher->rec, N_focused);
 			int x = 0;
-			int j = 0;
+			j = 0;
 			char c;
 			while (c = n->buffer[j++]) {
 				if (c == '\n') {
@@ -771,7 +842,6 @@ void main(int argc, char **argv) {
 		draw_string(windows[focused_window]->title, 30 * 8 , 5, BLACK);
 		set_pix_target(buf);
 
-		int i;
 		for (i = 0; i < node_c; i++) {
 			node *np = &nodes[i];
 			bool has_focus = np->parent == windows[focused_window];
