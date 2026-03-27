@@ -13,11 +13,9 @@ int main(void) {
 
 	//memset(screen, 0xffffff, 640 * 480 * 4);
 	
-	int mboxid = 1;
-	int err = mbox_create(mboxid); 
-	if (err < 0) {
+	int mboxid = mbox_create(-1); 
+	if (mboxid < 0)
 		lykos_exit();
-	}
 
 	wm_msg msg;
 	//memset(msg.title, 0, sizeof msg.title);
