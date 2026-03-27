@@ -30,35 +30,44 @@ typedef struct {
 // a = rax, D = rdi, S = rsi, d = rdx
 // syscall with 0 args
 static inline u64 syscall0(u64 num) {
-  int64_t ret;
-  asm volatile("int $0x80" : "=a"(ret) : "a"(num));
-  return ret;
+    int64_t ret;
+    asm volatile("int $0x80"
+        : "=a"(ret)
+        : "a"(num)
+        : "rcx", "r11", "memory");
+    return ret;
 }
 
 // 1 arg
-static inline int64_t syscall1(uint64_t num, uint64_t arg1) {
-  int64_t ret;
-  asm volatile("int $0x80" : "=a"(ret) : "a"(num), "D"(arg1));
-  return ret;
+static inline i64 syscall1(u64 num, u64 arg1) {
+    int64_t ret;
+    asm volatile("int $0x80"
+        : "=a"(ret)
+        : "a"(num), "D"(arg1)
+        : "rcx", "r11", "memory");
+    return ret;
 }
 
 // 2 args
-static inline int64_t syscall2(uint64_t num, uint64_t arg1, uint64_t arg2) {
-  int64_t ret;
-  asm volatile("int $0x80" : "=a"(ret) : "a"(num), "D"(arg1), "S"(arg2));
-  return ret;
+static inline i64 syscall2(u64 num, u64 arg1, u64 arg2) {
+    int64_t ret;
+    asm volatile("int $0x80"
+        : "=a"(ret)
+        : "a"(num), "D"(arg1), "S"(arg2)
+        : "rcx", "r11", "memory");
+    return ret;
 }
 
 // 3 args
-static inline int64_t syscall3(uint64_t num, uint64_t arg1, uint64_t arg2,
-                               uint64_t arg3) {
-  int64_t ret;
-  asm volatile("int $0x80"
-               : "=a"(ret)
-               : "a"(num), "D"(arg1), "S"(arg2), "d"(arg3));
-  return ret;
+static inline i64 syscall3(u64 num, u64 arg1, u64 arg2,
+                               u64 arg3) {
+    int64_t ret;
+    asm volatile("int $0x80"
+        : "=a"(ret)
+        : "a"(num), "D"(arg1), "S"(arg2), "d"(arg3)
+        : "rcx", "r11", "memory");
+    return ret;
 }
-
 static inline i64 lykos_exit(void) { return syscall0(SYS_EXIT); }
 
 static inline i64 sleep(u64 ms) { return syscall1(SYS_SLEEP, ms); }
