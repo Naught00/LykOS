@@ -94,4 +94,5 @@ i64 mbox_receive(u64 mailbox_id, MailboxMessage *out) {
 
   return mbox->count;
 }
+
 i64 mbox_delete(u64 mailbox_id);
