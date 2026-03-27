@@ -1,15 +1,28 @@
 #include "mailbox.h"
 #include "drivers/serial.h"
 #include "proc/task.h"
+#include "terminal.h"
 
 Mailbox mailboxes[MAX_MAILBOXES];
-i64 mbox_create(u64 requested_id) {
+
+i64 mbox_create(i64 requested_id) {
+  // auto assign
+  if (requested_id < 0) {
+    for (int i = 0; i < MAX_MAILBOXES; i++) {
+      if (!mailboxes[i].is_active) {
+        terminal_fstring("auto assign mailbox {uint}\n", i);
+        requested_id = i;
+        break;
+      }
+    }
+  }
   Mailbox *mbox = &mailboxes[requested_id];
 
   if (mbox->is_active) {
     serial_writeln("[MBOX CREATE] Mailbox taken");
     return -1;
   }
+
   *mbox = (Mailbox){
       .is_active = true,
       .id = requested_id,
@@ -56,6 +69,7 @@ i64 mbox_send(u64 mailbox_id, char *data, u64 data_len) {
   serial_writeln("sent to mailbox!");
   return 1;
 }
+
 i64 mbox_receive(u64 mailbox_id, MailboxMessage *out) {
   if (mailbox_id < 0 || mailbox_id > MAX_MAILBOXES) {
     serial_writeln("[MBOX RECEIVE] Invalid ID");
@@ -71,7 +85,7 @@ i64 mbox_receive(u64 mailbox_id, MailboxMessage *out) {
 
   if (mbox->count == 0) {
     serial_writeln("[MBOX RECEIVE] Mailbox empty");
-    return -3;
+    return 0;
   }
 
   *out = mbox->queue[mbox->head];
@@ -81,4 +95,5 @@ i64 mbox_receive(u64 mailbox_id, MailboxMessage *out) {
 
   return 1;
 }
+
 i64 mbox_delete(u64 mailbox_id);
