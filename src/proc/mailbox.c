@@ -92,7 +92,7 @@ i64 mbox_receive(u64 mailbox_id, MailboxMessage *out) {
   mbox->count--;
   serial_fstring("[MBOX] Count {uint}\n", mbox->count);
 
-  return mbox->count;
+  return 1;
 }
 
 i64 mbox_delete(u64 mailbox_id);

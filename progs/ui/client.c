@@ -2,6 +2,10 @@
 #include "protocol.h"
 #include <string.h>
 
+struct color {
+	uint8_t b, g, r, a;
+};
+
 int main(void) {
 	//u64 sz;
 	//u32 *screen = shm_map(0, &sz);
@@ -30,19 +34,41 @@ int main(void) {
 
 	mbox_send(0, &msg, sizeof(wm_msg));
 	MailboxMessage out;
+	size_t sz;
+	shared_buffer *buf = NULL;
+	struct color c = {0, 0, 0, 0};
+	bool up = true;
+	int step = 10;
 	while (1) {
+		memset(&msg, 0, sizeof msg);
 		while (mbox_receive(mboxid, &out));
 		msg = *(wm_msg *) out.data;
-		if (msg.type == WM_ok) break;
-	}
-	write("got it");
+		switch (msg.type) {
+		case WM_ok:
+			buf = shm_map(msg.shm_id, &sz);
+			break;
+		}
 
-	size_t sz;
-	shared_buffer *buf = shm_map(msg.shm_id, &sz);
-	int i;
-	for (i = 0; i < 300*300; i++) {
-		buf->surface[i] = 0xff0000;
+		if (!buf) continue;
+
+		buf->commited = 0;
+		for (int i = 0; i < 300*300; i++) {
+			buf->surface[i] = *(u32 *) &c;
+		}
+		buf->commited = 1;
+
+		if (c.b >= 255)
+			up = false;
+		else if (c.b <= 0) up = true;
+
+		if (up) {
+			c.r += step;
+			c.b += step * 2;
+		} else {
+			c.r -= step;
+			c.b -= step * 2;
+		}
+		sleep(16);
 	}
-	buf->commited = 1;
 	return 0;
 }

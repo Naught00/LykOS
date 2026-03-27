@@ -552,7 +552,6 @@ void handle_open(wm_msg *msg) {
 	response.shm_id = shmid;
 	int ret = mbox_send(msg->mailbox, &response, sizeof response);
 	if (ret < 0)  {
-		write("joever\n");
 		lykos_exit();
 	}
 	return;
@@ -588,7 +587,6 @@ void main(int argc, char **argv) {
 ////	char *hi = "hello from server\n";
 ////	strcpy(p, hi);
 	exec("client.elf");
-	sleep(1000);
 //	node *client = window("Client", 400, 700, 640, 480, defwinflags);
 //	//memset(client->texture, 0xffffff, 640 * 480 * 4);
 //	//memcpy(client->texture, p, 640 * 480 * 4);
@@ -706,7 +704,6 @@ void main(int argc, char **argv) {
 				set_node_target(c->win);
 				draw_texture_pix(c->buf->surface, 0, 0, c->win->rec.w, c->win->rec.h);
 				c->buf->commited = 0;
-				write("commiting\n");
 			}
 		}
 		set_pix_target(buf);
