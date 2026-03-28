@@ -1,18 +1,16 @@
-#include "../syscalls.h"
-#include "../protocol.h"
-#include "../mn.h"
+#include <stdint.h>
+#include "shapes.h"
+#include "syscalls.h"
+#include "protocol.h"
+#include "basic.h"
 
 
 enum local_flags {
 	WC_should_close,
 };
 
-typedef struct rectangle {
-	int x, y, w, h;
-} rectangle;
-
-typedef struct node node;
-struct node {
+typedef struct window window;
+struct window {
 	int id;
 	struct {
 		char *title;
@@ -24,7 +22,7 @@ struct node {
 	unsigned int local_flags;
 };
 
-stack(node, 20) nodes;
+stack(window, 20) nodes;
 
 atomic bool init = false;
 int mboxid;
@@ -37,11 +35,11 @@ void init_client() {
 	return;
 }
 
-node *window(char *title, int x, int y, int w, int h, unsigned int flags) {
+window *open_window(char *title, int x, int y, int w, int h, unsigned int flags) {
 	size_t sz;
 	MailboxMessage out;
 	wm_msg msg;
-	node *np;
+	window *np;
 
 	if (!init) {
 		init_client();
@@ -88,7 +86,7 @@ node *window(char *title, int x, int y, int w, int h, unsigned int flags) {
 	return np;
 }
 
-void commit_win(node *win) {
+void commit_win(window *win) {
 	wm_msg msg;
 	msg.type = WM_commit;
 	msg.window_id = win->window_id;
@@ -96,10 +94,10 @@ void commit_win(node *win) {
 	return;
 }
 
-node *get_window_by_win_id(int win_id) {
+window *get_window_by_win_id(int win_id) {
 	int i;
 	for (i = 0; i < nodes.sp; i++) {
-		node *n = &stack_index(nodes, i);
+		window *n = &stack_index(nodes, i);
 		if (n->window_id == win_id) 
 			return n;
 	}
@@ -113,7 +111,7 @@ void check_messages() {
 		msg = *(wm_msg *) out.data;
 		switch (msg.type) {
 		case WM_close:
-			node *win = get_window_by_win_id(msg.window_id);
+			window *win = get_window_by_win_id(msg.window_id);
 			win->local_flags |= WC_should_close;
 			break;
 		default: break;

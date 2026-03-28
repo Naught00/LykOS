@@ -847,7 +847,7 @@ void main(int argc, char **argv) {
 		imgviewer->rec.x += 1;
 		imgviewer->rec.y += 1;
 
-		clientwins[0]->rec.x += 5;
+		//clientwins[0]->rec.x += 5;
 		
 		set_node_target(bar);
 		draw_background(bar, WHITE);

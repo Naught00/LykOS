@@ -30,6 +30,11 @@ int fs[][4] = {
 
 };
 
+//void draw_line_pro(int x0, int y0, int x1, int y1) {
+//	int i;
+//	for (i = 0; 
+//}
+
 vector2 to_screen(vector2f p) {
 	vector2 vec;
 	vec.x = (p.x + 1)/2 * draw_width;
