@@ -6,7 +6,7 @@ int main() {
 	window *win;
 	win = open_window("test", 50, 100, 300, 300, -1);
 
-	while (1) {
+	while (!should_close(win)) {
 		check_messages();
 
 		set_render_target(win);
@@ -15,4 +15,5 @@ int main() {
 
 		sleep(16);
 	}
+	return 0;
 }

@@ -140,6 +140,7 @@ struct node {
 		uint32_t texture[1920 * 1080];
 
 	};
+	int client_mbox;
 	node *parent;
 	unsigned int flags;
 };
@@ -453,17 +454,13 @@ u8 *make_bitmap() {
 	char *text = "test";
 	float x = 0;
 	float y = 0;
+	u8 *chara = mmap2(512*512);
 	while (*text) {
 		if (*text >= 32 && *text < 128) {
 			stbtt_aligned_quad q;
 			stbtt_GetBakedQuad(cdata, 512,512, *text-32, &x,&y,&q,1);//1=opengl & d3d10+,0=d3d9
-									
-			//glTexCoord2f(q.s0,q.t0); glVertex2f(q.x0,q.y0);
-			//glTexCoord2f(q.s1,q.t0); glVertex2f(q.x1,q.y0);
-			//glTexCoord2f(q.s1,q.t1); glVertex2f(q.x1,q.y1);
-			//glTexCoord2f(q.s0,q.t1); glVertex2f(q.x0,q.y1);
-
 		}
+
 		++text;
 	}
 	return bitmap;
@@ -537,6 +534,7 @@ void handle_open(wm_msg *msg) {
 	uint32_t *buf = shm_map(shmid, &sz);
 	clientfbs[win->window_id] = buf;
 	clientwins[clientc++] = win;
+	win->client_mbox = msg->mailbox;
 
 	//respond
 	wm_msg response;
@@ -556,6 +554,15 @@ void handle_msg(wm_msg *msg) {
 		break;
 	}
 }
+
+void send_msg(node *win, enum wm_msg_type type) {
+	wm_msg msg;
+	msg.type = type;
+	msg.window_id = win->window_id;
+	mbox_send(win->client_mbox, &msg, sizeof msg);
+	return;
+}
+
 
 void main(int argc, char **argv) {
 	u32 *fb = mmap_fb();
@@ -722,8 +729,8 @@ void main(int argc, char **argv) {
 		char evbuf[64] = {0};
 		int evbufi = 0;
 		while (1) {
-			//i64 ret = get_key_event(&ev);
-			i64 ret = 0;
+			i64 ret = get_key_event(&ev);
+			//i64 ret = 0;
 			if (ret == 0) {
 				break;
 			} else if (ev.key == KEY_UP_ARROW) {
@@ -734,7 +741,7 @@ void main(int argc, char **argv) {
 				else focused_window = 0;
 			} else if (ev.key == 27) {
 				lykos_exit();
-			} else if (ev.key == 'q') {
+			} else if (ev.key == 'q' && ev.modifiers & MOD_CTRL) {
 				if (windows[focused_window]) {
 					node *win = windows[focused_window];
 					if (win->flags & W_visible) {
@@ -742,6 +749,8 @@ void main(int argc, char **argv) {
 					} else {
 						win->flags |= W_visible;
 					}
+					//remove_window(win);
+					send_msg(win, WM_close);
 				}
 			} else if (ev.key == 'd' && ev.modifiers & MOD_CTRL) {
 				if (launcher->flags & W_visible) {
@@ -758,12 +767,8 @@ void main(int argc, char **argv) {
 			} else if (ev.key == KEY_RIGHT_ARROW) {
 				diff.x += 10;
 			} else {
-				//evbuf[evbufi++] = ev.key;
+				evbuf[evbufi++] = ev.key;
 			}
-		}
-		if (evbufi) {
-			write("ui:: keys::");
-			write(evbuf);
 		}
 
 		if (launcher->flags & W_visible) {
@@ -776,10 +781,10 @@ void main(int argc, char **argv) {
 			char c;
 			while (c = n->buffer[j++]) {
 				if (c == '\n') {
-					//n->buffer[strlen(n->buffer) - 2] = '\0';
-					////exec(n->buffer);
-					//memset(n->buffer, 0, sizeof n->buffer);
-					//n->buff_i = 0;
+					n->buffer[strlen(n->buffer) - 2] = '\0';
+					exec(n->buffer);
+					memset(n->buffer, 0, sizeof n->buffer);
+					n->buff_i = 0;
 				}
 				draw_char_scaled(c, x, 5, BLACK, 1);
 				x += 8;
@@ -846,6 +851,7 @@ void main(int argc, char **argv) {
 		windows[focused_window]->rec.y += diff.y;
 		imgviewer->rec.x += 1;
 		imgviewer->rec.y += 1;
+		//set_focus(fontviewer);
 
 		//clientwins[0]->rec.x += 5;
 		
@@ -855,15 +861,15 @@ void main(int argc, char **argv) {
 		draw_string(windows[focused_window]->title, 30 * 8 , 5, BLACK);
 		set_pix_target(buf);
 
-//		for (i = 0; i < node_c; i++) {
-//			node *np = &nodes[i];
-//			bool has_focus = np->parent == windows[focused_window];
-//			if (has_focus && np->flags & N_text && evbufi) {
-//				for (int x = 0; x < evbufi; x++) {
-//					np->buffer[np->buff_i++] = evbuf[x];
-//				}
-//			}
-//		}
+		for (i = 0; i < node_c; i++) {
+			node *np = &nodes[i];
+			bool has_focus = np->parent == windows[focused_window];
+			if (has_focus && np->flags & N_text && evbufi) {
+				for (int x = 0; x < evbufi; x++) {
+					np->buffer[np->buff_i++] = evbuf[x];
+				}
+			}
+		}
 		//fixme drawstack
 		for (i = 0; i < win_c; i++) {
 			node *np = windows[i];

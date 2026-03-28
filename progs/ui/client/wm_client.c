@@ -6,7 +6,7 @@
 
 
 enum local_flags {
-	WC_should_close,
+	WC_should_close = 0x1,
 };
 
 typedef struct window window;
@@ -111,6 +111,7 @@ void check_messages() {
 		msg = *(wm_msg *) out.data;
 		switch (msg.type) {
 		case WM_close:
+			write("got close\n");
 			window *win = get_window_by_win_id(msg.window_id);
 			win->local_flags |= WC_should_close;
 			break;
