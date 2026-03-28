@@ -146,17 +146,13 @@ struct node {
 };
 
 
-typedef struct Client {
-	shared_buffer *buf;
-	node *win;
-} Client;
-
-Client clients[10];
-int clientc = 0;
 
 node nodes[20];
 int node_c = 0;
 node *windows[20];
+shared_buffer *clientfbs[20];
+node *clientwins[20];
+int clientc = 0;
 int win_c = 0;
 int focused_window = 1;
 
@@ -532,22 +528,21 @@ void handle_open(wm_msg *msg) {
 	char *title = mmap2(MAX_TITLE);
 	strcpy(title, msg->title);
 	node *win = window(title, msg->x, msg->y, msg->w, msg->h, msg->flags);
-	int shmid = shm_create((msg->w * msg->h * BPP) + sizeof(u32), true);
+	int shmid = shm_create((msg->w * msg->h * BPP), true);
 	if (shmid < 0) {
 		lykos_exit();
 	}
 
 	u64 sz;
 	shared_buffer *buf = shm_map(shmid, &sz);
-	buf->commited = 0;
-	clients[clientc].buf = buf;
-	clients[clientc].win = win;
-	clientc++;
+	clientfbs[win->window_id] = buf;
+	clientwins[clientc++] = win;
 
 	//respond
 	wm_msg response;
 	response.type = WM_ok;
 	response.shm_id = shmid;
+	response.window_id = win->window_id;
 	int ret = mbox_send(msg->mailbox, &response, sizeof response);
 	if (ret < 0)  {
 		lykos_exit();
@@ -701,17 +696,24 @@ void main(int argc, char **argv) {
 			case WM_open:
 				handle_open(&msg);
 				break;
+			case WM_commit:
+				node *client = windows[msg.window_id];
+				shared_buffer *cbuf = clientfbs[msg.window_id];
+
+				set_node_target(client);
+				draw_texture_pix(cbuf->surface, 0, 0, client->rec.w, client->rec.h);
+				set_pix_target(buf);
+				break;
 			}
 		}
-		for (j = 0; j < clientc; j++) {
-			Client *c = &clients[j];
-			if (c->buf->commited) {
-				set_node_target(c->win);
-				draw_texture_pix(c->buf->surface, 0, 0, c->win->rec.w, c->win->rec.h);
-				c->buf->commited = 0;
-			}
-		}
-		set_pix_target(buf);
+		//for (j = 0; j < clientc; j++) {
+		//	Client *c = &clients[j];
+		//	if (c->buf->commited) {
+		//		set_node_target(c->win);
+		//		draw_texture_pix(c->buf->surface, 0, 0, c->win->rec.w, c->win->rec.h);
+		//		c->buf->commited = 0;
+		//	}
+		//}
 		//for (int i = 0; i < width*height; i++) {
 		//	buf[i] = BG;
 		//}
@@ -845,7 +847,7 @@ void main(int argc, char **argv) {
 		imgviewer->rec.x += 1;
 		imgviewer->rec.y += 1;
 
-		clients[0].win->rec.x += 5;
+		clientwins[0]->rec.x += 5;
 		
 		set_node_target(bar);
 		draw_background(bar, WHITE);

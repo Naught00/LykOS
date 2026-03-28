@@ -1,8 +1,10 @@
 #define MAX_TITLE 32
+#define DISPLAY 0
 enum wm_msg_type {
 	WM_open,
 	WM_ok,
-	WM_close
+	WM_close,
+	WM_commit,
 };
 
 enum window_flags {
@@ -14,6 +16,7 @@ enum window_flags {
 
 typedef struct wm_msg {
 	enum wm_msg_type type;
+	int window_id;
 	union {
 		//WM_open
 		struct {
@@ -33,6 +36,6 @@ typedef struct wm_msg {
 } wm_msg;
 
 typedef struct shared_buffer {
-	_Atomic u32 commited;
+	//_Atomic u32 commited;
 	u32 surface[];
 } shared_buffer;

@@ -37,6 +37,7 @@ int main(void) {
 	struct color c = {0, 0, 0, 0};
 	bool up = true;
 	int step = 10;
+	int window_id = -1;
 	while (1) {
 		memset(&msg, 0, sizeof msg);
 		while (mbox_receive(mboxid, &out));
@@ -44,16 +45,19 @@ int main(void) {
 		switch (msg.type) {
 		case WM_ok:
 			buf = shm_map(msg.shm_id, &sz);
+			window_id = msg.window_id;
 			break;
 		}
 
 		if (!buf) continue;
 
-		buf->commited = 0;
 		for (int i = 0; i < 300*300; i++) {
 			buf->surface[i] = *(u32 *) &c;
 		}
-		buf->commited = 1;
+
+		msg.type = WM_commit;
+		msg.window_id = window_id;
+		mbox_send(DISPLAY, &msg, sizeof(msg));
 
 		if (c.b >= 255)
 			up = false;
