@@ -1,4 +1,3 @@
-
 #include "syscalls.h"
 #include <math.h>
 #include "../../src/vendor/font.h"
@@ -150,7 +149,8 @@ struct node {
 node nodes[20];
 int node_c = 0;
 node *windows[20];
-shared_buffer *clientfbs[20];
+uint32_t *clientfbs[20];
+//debug
 node *clientwins[20];
 int clientc = 0;
 int win_c = 0;
@@ -308,14 +308,14 @@ unsigned int defwinflags = W_visible | N_title | W_draw_decoration | W_draw_bord
 
 node *window(char *title, int x, int y, int w, int h, unsigned int flags) {
 	node *np;
-		np = &nodes[node_c++];
-		np->id = node_c - 1;
-		np->title = title;
-		np->window_id = win_c;
-		np->rec = (rectangle){x, y, w, h};
-		np->flags = flags | N_title;
-		np->parent = np;
-		windows[win_c++] = np;
+	np = &nodes[node_c++];
+	np->id = node_c - 1;
+	np->title = title;
+	np->window_id = win_c;
+	np->rec = (rectangle){x, y, w, h};
+	np->flags = flags | N_title;
+	np->parent = np;
+	windows[win_c++] = np;
 	return np;
 }
 
@@ -534,7 +534,7 @@ void handle_open(wm_msg *msg) {
 	}
 
 	u64 sz;
-	shared_buffer *buf = shm_map(shmid, &sz);
+	uint32_t *buf = shm_map(shmid, &sz);
 	clientfbs[win->window_id] = buf;
 	clientwins[clientc++] = win;
 
@@ -579,8 +579,8 @@ void main(int argc, char **argv) {
 //
 ////	char *hi = "hello from server\n";
 ////	strcpy(p, hi);
-	exec("client.elf");
-	exec("client.elf");
+	//exec("client.elf");
+	exec("wmclient.elf");
 //	node *client = window("Client", 400, 700, 640, 480, defwinflags);
 //	//memset(client->texture, 0xffffff, 640 * 480 * 4);
 //	//memcpy(client->texture, p, 640 * 480 * 4);
@@ -698,10 +698,10 @@ void main(int argc, char **argv) {
 				break;
 			case WM_commit:
 				node *client = windows[msg.window_id];
-				shared_buffer *cbuf = clientfbs[msg.window_id];
+				uint32_t *cbuf = clientfbs[msg.window_id];
 
 				set_node_target(client);
-				draw_texture_pix(cbuf->surface, 0, 0, client->rec.w, client->rec.h);
+				draw_texture_pix(cbuf, 0, 0, client->rec.w, client->rec.h);
 				set_pix_target(buf);
 				break;
 			}

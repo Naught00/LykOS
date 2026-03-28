@@ -1,3 +1,5 @@
+#include <stdint.h>
+
 #define MAX_TITLE 32
 #define DISPLAY 0
 enum wm_msg_type {
@@ -34,8 +36,3 @@ typedef struct wm_msg {
 		};
 	};
 } wm_msg;
-
-typedef struct shared_buffer {
-	//_Atomic u32 commited;
-	u32 surface[];
-} shared_buffer;

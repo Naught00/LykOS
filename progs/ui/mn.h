@@ -59,6 +59,7 @@ void free_all(int argc, ...);
 #define pop(s)  s.stack[--s.sp]
 #define popl(s, v) s.sp--
 #define top(s) s.stack[s.sp - 1]
+#define stack_next(s) s.stack[s.sp++]
 #define stack_index(s, i) s.stack[i]
 #define modtop(s, v) s.stack[s.sp - 1] = v
 
