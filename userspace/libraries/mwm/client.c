@@ -10,6 +10,7 @@
 
 enum local_flags {
 	WC_should_close = 0x1,
+	WC_has_focus    = 0x2,
 };
 
 typedef struct window window;
@@ -102,6 +103,15 @@ void commit_win(window *win) {
 	return;
 }
 
+void close_window(window *win) {
+	wm_msg msg;
+	msg.type = WM_close;
+	msg.window_id = win->window_id;
+	mbox_send(DISPLAY, &msg, sizeof(msg));
+	win->local_flags |= WC_should_close;
+	return;
+}
+
 window *get_window_by_win_id(int win_id) {
 	int i;
 	for (i = 0; i < nodes.sp; i++) {
@@ -112,20 +122,64 @@ window *get_window_by_win_id(int win_id) {
 	return null;
 }
 
+u64 keys[2];
+u64 ascii_to_key(char c) {
+	u64 i = c - '!';
+	return 1 << i;
+}
+
+bool is_key_pressed(char k) {
+	if (k < '!' || k > '~') return false;
+
+	int index = 0;
+	u32 key_bit;
+	key_bit = ascii_to_key(k);
+	if (k > (1 << 64)) index = 1;
+
+	if (keys[index] & key_bit) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+void poll_keys(window *) {
+}
+
 void check_messages() {
 	wm_msg msg;
 	MailboxMessage out;
 	while (mbox_receive(mboxid, &out)) {
 		msg = *(wm_msg *) out.data;
+		//todo
+		//if (valid_msg) 
+			window *win = get_window_by_win_id(msg.window_id);
 		switch (msg.type) {
 		case WM_close:
-			window *win = get_window_by_win_id(msg.window_id);
 			win->local_flags |= WC_should_close;
+			break;
+		case WM_focus:
+			write("focusing\n");
+			win->local_flags |= WC_has_focus;
+			break;
+		case WM_unfocus:
+			win->local_flags &= ~WC_has_focus;
 			break;
 		default: break;
 		}
 	}
+
+	int i;
+	for (i = 0; i < nodes.sp; i++) {
+		window *win = &stack_index(nodes, i);
+		if (win->local_flags & WC_has_focus) {
+			poll_keys(win);
+		}
+	}
+	return;
 }
 
+
 #define should_close(win) (win->local_flags & WC_should_close)
+#define has_focus(win) (win->local_flags & WC_has_focus)
 #endif

@@ -21,5 +21,6 @@ int main() {
 		check_messages();
 		sleep(16);
 	}
+	close_window(win);
 	return 0;
 }

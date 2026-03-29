@@ -122,25 +122,24 @@ enum node_flags {
 typedef struct node node;
 struct node {
 	int id;
-	union {
-		struct {
-			char *title;
-			int window_id;
-		}
-	};
 	rectangle rec;
 	union {
-		//Window
-		//bool *user_bool;
 		//Text input
 		struct {
 			char buffer[256];
 			int  buff_i;
 		};
-		uint32_t texture[1920 * 1080];
+		//Window
+		struct {
+			char *title;
+			int window_id;
+			uint32_t texture[1920 * 1080];
+			int client_mbox;
+			uint32_t *shared_buf;
+		}
 
 	};
-	int client_mbox;
+	//??
 	node *parent;
 	unsigned int flags;
 };
@@ -150,12 +149,37 @@ struct node {
 node nodes[20];
 int node_c = 0;
 node *windows[20];
-uint32_t *clientfbs[20];
 //debug
 node *clientwins[20];
 int clientc = 0;
 int win_c = 0;
+int win_id_inc = 0;
 int focused_window = 1;
+
+//fixme: make these two stacks instead
+//freelist 
+void remove_window(node *win) {
+	int i, j;
+	for (i = 0; i < win_c; i++) {
+		node *n = windows[i]; 
+		if (n == win) {
+			j = i + 1;
+			if (j == win_c) {
+				windows[i] = null;
+				focused_window--;
+			} else {
+				for (j = i + 1; j < win_c; j++) {
+					windows[j - 1] = windows[j];
+				}
+			}
+			win_c--;
+			return;
+
+		}
+
+	}
+	return;
+}
 
 void draw_pixel(int x, int y, color c) {
 	if (x < 0 || y < 0 || x >= width || y >= height) return;
@@ -311,13 +335,34 @@ node *window(char *title, int x, int y, int w, int h, unsigned int flags) {
 	node *np;
 	np = &nodes[node_c++];
 	np->id = node_c - 1;
+	np->client_mbox = -1;
 	np->title = title;
-	np->window_id = win_c;
+	np->window_id = win_id_inc++;
 	np->rec = (rectangle){x, y, w, h};
 	np->flags = flags | N_title;
 	np->parent = np;
 	windows[win_c++] = np;
 	return np;
+}
+
+void set_focus(node *n) {
+	int i;
+	for (i = 0; i < win_c; i++) {
+		if (n == windows[i]) {
+			focused_window = i;
+		}
+	}
+}
+
+node *get_window_by_id(int id) {
+	int i;
+	for (i = 0; i < win_c; i++) {
+		node *win = windows[i];
+		if (win->window_id == id) {
+			return win;
+		}
+	}
+	return null;
 }
 
 node *text_input(int id, node *parent, char *base, rectangle rec, unsigned int flags) {
@@ -402,15 +447,6 @@ void set_pix_target(uint32_t *p) {
 	//fixme
 	draw_width = width;
 	draw_height = height;
-}
-
-void set_focus(node *n) {
-	int i;
-	for (i = 0; i < win_c; i++) {
-		if (n == windows[i]) {
-			focused_window = i;
-		}
-	}
 }
 
 void bgr_to_rgb(byte *bgr, int w, int h) {
@@ -532,7 +568,7 @@ void handle_open(wm_msg *msg) {
 
 	u64 sz;
 	uint32_t *buf = shm_map(shmid, &sz);
-	clientfbs[win->window_id] = buf;
+	win->shared_buf = buf;
 	clientwins[clientc++] = win;
 	win->client_mbox = msg->mailbox;
 
@@ -556,6 +592,9 @@ void handle_msg(wm_msg *msg) {
 }
 
 void send_msg(node *win, enum wm_msg_type type) {
+	if (win->client_mbox < 0)
+		return;
+
 	wm_msg msg;
 	msg.type = type;
 	msg.window_id = win->window_id;
@@ -698,19 +737,30 @@ void main(int argc, char **argv) {
 	int i, j;
 	for (;;) {
 		while (mbox_receive(mboxid, &out)) {
+			//if (valid_msg)
+			node *client;
 			msg = *(wm_msg *)out.data;
 			switch (msg.type) {
 			case WM_open:
 				handle_open(&msg);
 				break;
+			case WM_close:
+				client = get_window_by_id(msg.window_id);
+				if (!client) break;
+				remove_window(client);
+				write("closed client\n");
+				//focused_window = 0;
+				break;
 			case WM_commit:
-				node *client = windows[msg.window_id];
-				uint32_t *cbuf = clientfbs[msg.window_id];
+				client = get_window_by_id(msg.window_id);
+				if (!client) break;
+				uint32_t *cbuf = client->shared_buf;
 
 				set_node_target(client);
 				draw_texture_pix(cbuf, 0, 0, client->rec.w, client->rec.h);
 				set_pix_target(buf);
 				break;
+			default: break;
 			}
 		}
 		//for (j = 0; j < clientc; j++) {
@@ -736,9 +786,12 @@ void main(int argc, char **argv) {
 			} else if (ev.key == KEY_UP_ARROW) {
 				diff.y -= 10;
 			} else if (ev.key == '\t') {
+				send_msg(windows[focused_window], WM_unfocus);
 				if (focused_window < win_c - 1)
 					focused_window++;
 				else focused_window = 0;
+
+				send_msg(windows[focused_window], WM_focus);
 			} else if (ev.key == 27) {
 				lykos_exit();
 			} else if (ev.key == 'q' && ev.modifiers & MOD_CTRL) {
@@ -749,8 +802,9 @@ void main(int argc, char **argv) {
 					} else {
 						win->flags |= W_visible;
 					}
-					//remove_window(win);
+					remove_window(win);
 					send_msg(win, WM_close);
+					focused_window = 0;
 				}
 			} else if (ev.key == 'd' && ev.modifiers & MOD_CTRL) {
 				if (launcher->flags & W_visible) {

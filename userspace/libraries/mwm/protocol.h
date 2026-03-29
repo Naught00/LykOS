@@ -8,6 +8,7 @@ enum wm_msg_type {
 	WM_close,
 	WM_commit,
 	WM_focus,
+	WM_unfocus,
 };
 
 enum window_flags {
