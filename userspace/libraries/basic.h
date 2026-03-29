@@ -15,7 +15,7 @@ typedef uint16_t u16;
 typedef int16_t  s16;
 typedef uint8_t  u8;
 typedef int8_t   s8;
-typedef ptrdiff_t size;
+typedef ptrdiff_t ssize;
 
 typedef unsigned char byte;
 
@@ -27,9 +27,9 @@ typedef unsigned char byte;
 #define memz(x) memset(x, 0, sizeof(*x))
 
 /* Stack */
-#define stacktype(t) struct {t *stack; size sp;}
-#define stacktype2(t, n) struct n {t *stack; size sp;}
-#define stack(t, sz) struct {t stack[sz]; size sp;}
+#define stacktype(t) struct {t *stack; ssize sp;}
+#define stacktype2(t, n) struct n {t *stack; ssize sp;}
+#define stack(t, sz) struct {t stack[sz]; ssize sp;}
 #define push(s, v) s.stack[s.sp++] = v
 #define pop(s)  s.stack[--s.sp]
 #define popl(s, v) s.sp--
@@ -42,7 +42,7 @@ typedef unsigned char byte;
 #define streq(a,b) (strcmp((a),(b)) == 0)
 #define strstarts(str,prefix) (strncmp((str),(prefix),strlen(prefix)) == 0)
 
-#define size_of(x) (size) sizeof(x)
+#define size_of(x) (ssize) sizeof(x)
 #define countof(x) size_of(x) / size_of(x[0])
 #define for_range(lower, upper) for (int it = lower; it < upper; it++)
 

@@ -5,7 +5,7 @@
 #include "keys.h"
 #include "mn.h"
 
-#include "protocol.h"
+#include "../../userspace/libraries/mwm/protocol.h"
 
 u8 img_buffer[] = {
 #embed "snow.jpg"
@@ -522,8 +522,8 @@ void wallpaper() {
 }
 
 void handle_open(wm_msg *msg) {
-//	char *title = mmap2(MAX_TITLE);
-//	strcpy(title, msg->title);
+	char *title = mmap2(MAX_TITLE);
+	strcpy(title, msg->title);
 	char *title = "clientwin";
 	node *win = window(title, msg->x, msg->y, msg->w, msg->h, msg->flags);
 	int shmid = shm_create((msg->w * msg->h * BPP), true);
