@@ -75,12 +75,10 @@ window *open_window(char *title, int x, int y, int w, int h, unsigned int flags)
 	//windows[win_c++] = np;
 
 	memset(&msg, 0, sizeof msg);
-	//FIXME!
+	//FIXME sleep on rec
 	while (1) {
-		int ret;
-		ret = mbox_receive(mboxid, &out);
-		if (!ret) {
-			sleep(16);
+		while (!mbox_receive(mboxid, &out)) {
+			sleep(1);
 			continue;
 		}
 
@@ -90,8 +88,7 @@ window *open_window(char *title, int x, int y, int w, int h, unsigned int flags)
 			uint32_t *surface = shm_map(msg.shm_id, &sz);
 			np->surface = surface;
 			break;
-		} else {
-		}
+		} 
 	}
 
 	return np;

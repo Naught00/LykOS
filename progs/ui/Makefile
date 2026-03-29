@@ -1,12 +1,13 @@
-CFLAGS = -I/usr/lib64/musl/include -ffreestanding -fno-stack-protector -Wall -static -no-pie -g -O3 -nostdlib crt0.o
-all: client
-	gcc -std=gnu23 $(CFLAGS) ui.c -o ui.elf stb.o /home/naught/git/musl/lib/libc.a
+USERSPACE = ../../userspace/
+CFLAGS = -I/usr/lib64/musl/include -ffreestanding -fno-stack-protector -Wall -static -no-pie -g -O3 -nostdlib $(USERSPACE)/libraries/libc/crt0.o
+all: client stb.o
+	gcc -std=gnu23 $(CFLAGS) ui.c -o ui.elf stb.o $(USERSPACE)/libraries/libc/libc.a
 	mcopy -i ../../fat16.img -o ui.elf ::/ui.elf
 stub:
-	gcc $(CFLAGS) stbmi.c -o stbmi.elf /usr/lib64/musl/lib/libc.a
+	gcc $(CFLAGS) stbmi.c -o stbmi.elf $(USERSPACE)/libraries/libc/libc.a
 	mcopy -i ../../fat16.img -o stbmi.elf ::/stbmi.elf
 client:
-	gcc $(CFLAGS) client.c -o client.elf /usr/lib64/musl/lib/libc.a
+	gcc $(CFLAGS) client.c -o client.elf $(USERSPACE)/libraries/libc/libc.a
 	mcopy -i ../../fat16.img -o client.elf ::/client.elf
-stb:
+stb.o:
 	gcc $(CFLAGS) stb.c -c

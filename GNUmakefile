@@ -140,6 +140,7 @@ obj/%.asm.o: %.asm GNUmakefile
 .PHONY: progs
 progs:
 	make -C progs
+	make -C userspace
 # Remove object files and the final executable.
 .PHONY: clean
 clean:
