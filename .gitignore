@@ -7,3 +7,4 @@ image.iso
 compile_commands.json
 serial.lg
 qemu.lg
+*.elf

@@ -1,6 +1,9 @@
+#ifndef MWM_CLIENT
+#define MWM_CLIENT
+
 #include <stdint.h>
 #include "shapes.h"
-#include "syscalls.h"
+#include "lykosapi.h"
 #include "protocol.h"
 #include "basic.h"
 
@@ -128,3 +131,4 @@ void check_messages() {
 }
 
 #define should_close(win) (win->local_flags & WC_should_close)
+#endif
