@@ -157,13 +157,13 @@ int win_id_inc = 0;
 int focused_window = 1;
 
 //fixme: make these two stacks instead
-//freelist 
 void remove_window(node *win) {
 	int i, j;
 	for (i = 0; i < win_c; i++) {
 		node *n = windows[i]; 
 		if (n == win) {
 			j = i + 1;
+			//@Drawstack
 			if (j == win_c) {
 				windows[i] = null;
 				focused_window--;
@@ -558,9 +558,19 @@ void wallpaper() {
 }
 
 void handle_open(wm_msg *msg) {
+	//@Arena
 	char *title = mmap2(MAX_TITLE);
 	strcpy(title, msg->title);
-	node *win = window(title, msg->x, msg->y, msg->w, msg->h, msg->flags);
+	int x, y;
+	if (msg->x < 0 || msg->y < 0) {
+		x = (width / 2)  - msg->w / 2;
+		y = (height / 2) - msg->h / 2;
+	} else {
+		x = msg->x;
+		y = msg->y;
+	}
+
+	node *win = window(title, x, y, msg->w, msg->h, msg->flags);
 	int shmid = shm_create((msg->w * msg->h * BPP), true);
 	if (shmid < 0) {
 		lykos_exit();

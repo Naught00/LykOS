@@ -11,7 +11,7 @@
 
 int main() {
 	window *win;
-	win = open_window("test", 50, 100, 300, 300, -1);
+	win = open_window("test", -1, -1, 300, 300, -1);
 
 	while (!should_close(win)) {
 		set_render_target(win);
