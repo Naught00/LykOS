@@ -30,7 +30,7 @@ stack(window, 20) nodes;
 
 atomic bool init = false;
 int mboxid;
-int DEFWINFLAGS = W_visible | W_draw_decoration | W_draw_border | W_focusable;
+int DEFWINFLAGS = W_visible | W_draw_decoration | W_draw_border | W_focusable | W_movable;
 
 void init_client() {
 	mboxid = mbox_create(-1); 
@@ -159,7 +159,6 @@ void check_messages() {
 			win->local_flags |= WC_should_close;
 			break;
 		case WM_focus:
-			write("focusing\n");
 			win->local_flags |= WC_has_focus;
 			break;
 		case WM_unfocus:

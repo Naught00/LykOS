@@ -114,9 +114,9 @@ typedef struct rectangle {
 } rectangle;
 
 enum node_flags {
-	N_title = 0x10,
-	N_text = 0x20,
-	N_focused = 0x40,
+	N_title = 0x20,
+	N_text = 0x40,
+	N_focused = 0x80,
 };
 
 typedef struct node node;
@@ -329,7 +329,7 @@ bool node_exists_id(int id, node **n) {
 	return false;
 }
 
-unsigned int defwinflags = W_visible | N_title | W_draw_decoration | W_draw_border;
+unsigned int defwinflags = W_visible | N_title | W_draw_decoration | W_draw_border | W_focusable | W_movable;
 
 node *window(char *title, int x, int y, int w, int h, unsigned int flags) {
 	node *np;
@@ -571,7 +571,7 @@ void handle_open(wm_msg *msg) {
 	}
 
 	node *win = window(title, x, y, msg->w, msg->h, msg->flags);
-	int shmid = shm_create((msg->w * msg->h * BPP), true);
+	int shmid = shm_create((width * height * BPP), true);
 	if (shmid < 0) {
 		lykos_exit();
 	}
@@ -741,7 +741,7 @@ void main(int argc, char **argv) {
 	node *win = window("mterm", 100, 100, 500, 300, defwinflags);
 	node *win2 = window("xd", 400, 600, 500, 300, defwinflags);
 	node *bar = window("bar", 0, 0, width, 20, W_visible | N_title);
-	node *launcher = window("launcher", width / 2 - 250, height / 2 - 10, 500, 20, W_visible | N_title | W_draw_border);
+	node *launcher = window("launcher", width / 2 - 250, height / 2 - 10, 500, 20, W_visible | N_title | W_draw_border | W_focusable);
 	MailboxMessage out;
 	wm_msg msg;
 	int i, j;
@@ -758,8 +758,6 @@ void main(int argc, char **argv) {
 				client = get_window_by_id(msg.window_id);
 				if (!client) break;
 				remove_window(client);
-				write("closed client\n");
-				//focused_window = 0;
 				break;
 			case WM_commit:
 				client = get_window_by_id(msg.window_id);
@@ -796,12 +794,22 @@ void main(int argc, char **argv) {
 			} else if (ev.key == KEY_UP_ARROW) {
 				diff.y -= 10;
 			} else if (ev.key == '\t') {
+				if (focused_window == -1) focused_window = 0;
 				send_msg(windows[focused_window], WM_unfocus);
-				if (focused_window < win_c - 1)
+				int i;
+				bool found = false;
+				for (i = 0; i < win_c; i++) {
 					focused_window++;
-				else focused_window = 0;
-
-				send_msg(windows[focused_window], WM_focus);
+					if (focused_window > win_c - 1) focused_window = 0;
+					if (!(windows[focused_window]->flags & W_focusable)) {
+						continue;
+					} else {
+						found = true;
+						break;
+					}
+				}
+				if (!found) focused_window = -1;
+				else send_msg(windows[focused_window], WM_focus);
 			} else if (ev.key == 27) {
 				lykos_exit();
 			} else if (ev.key == 'q' && ev.modifiers & MOD_CTRL) {
@@ -814,7 +822,6 @@ void main(int argc, char **argv) {
 					}
 					remove_window(win);
 					send_msg(win, WM_close);
-					focused_window = 0;
 				}
 			} else if (ev.key == 'd' && ev.modifiers & MOD_CTRL) {
 				if (launcher->flags & W_visible) {
@@ -911,8 +918,14 @@ void main(int argc, char **argv) {
 			}
 			set_pix_target(buf);
 		}
-		windows[focused_window]->rec.x += diff.x;
-		windows[focused_window]->rec.y += diff.y;
+
+		if (focused_window >= 0) {
+			node *focuswin = windows[focused_window];
+			if (focuswin->flags & W_movable) {
+				windows[focused_window]->rec.x += diff.x;
+				windows[focused_window]->rec.y += diff.y;
+			}
+		}
 		imgviewer->rec.x += 1;
 		imgviewer->rec.y += 1;
 		//set_focus(fontviewer);
@@ -922,7 +935,8 @@ void main(int argc, char **argv) {
 		set_node_target(bar);
 		draw_background(bar, WHITE);
 		draw_string("Applications File Edit View", 5, 5, BLACK);
-		draw_string(windows[focused_window]->title, 30 * 8 , 5, BLACK);
+		if (focused_window >= 0)
+			draw_string(windows[focused_window]->title, 30 * 8 , 5, BLACK);
 		set_pix_target(buf);
 
 		for (i = 0; i < node_c; i++) {
@@ -947,13 +961,15 @@ void main(int argc, char **argv) {
 				draw_border(np);
 		}
 
-		node *np = windows[focused_window];
-		if (np->flags & W_visible) {
-			draw_texture(np);
-			if (np->flags & W_draw_decoration)
-				draw_decoration(np);
-			if (np->flags & W_draw_border)
-				draw_border(np);
+		if (focused_window >= 0) {
+			node *np = windows[focused_window];
+			if (np->flags & W_visible) {
+				draw_texture(np);
+				if (np->flags & W_draw_decoration)
+					draw_decoration(np);
+				if (np->flags & W_draw_border)
+					draw_border(np);
+			}
 		}
 
 		memcpy((void *) fb, (void *) buf, sizeof buf);
