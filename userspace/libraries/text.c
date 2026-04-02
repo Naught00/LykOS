@@ -2,6 +2,7 @@
 #define  TEXT_C
 #include "shapes.h"
 #include "basic.h"
+#include "lykosapi.h"
 #include "libc/lib/malloc.c"
 #include "libc/lib/assert.c"
 #define STB_TRUETYPE_IMPLEMENTATION

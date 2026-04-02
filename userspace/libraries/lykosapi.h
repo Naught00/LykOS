@@ -1,3 +1,4 @@
+#pragma once
 #include "../../src/req.h"
 #include <stdbool.h>
 
