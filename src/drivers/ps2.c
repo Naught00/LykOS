@@ -130,16 +130,9 @@ void keyboard_process(void) {
         }
       }
 
-<<<<<<< HEAD
-      u8 next = (key_event_head + 1) % KEYBOARD_BUFFER_SIZE;
-      if (next != key_event_tail) {
-        key_event_buffer[key_event_head] = (KeyEvent){key, mods};
-        key_event_head = next;
-=======
       u64 next = (key_event_head + 1) % KEYBOARD_BUFFER_SIZE;
       if (next == key_event_tail) {
         key_event_tail = (key_event_tail + 1) % KEYBOARD_BUFFER_SIZE;
->>>>>>> 5cc72accea606e1721a4193a5d45d49c5516a7fe
       }
       key_event_buffer[key_event_head] = (KeyEvent){key_event_id, key, mods};
       key_event_id++;

@@ -4,10 +4,6 @@
 #include <stdint.h>
 
 #define COM1 0x3F8 // Base I/O port for COM1
-<<<<<<< HEAD
-=======
-#define SERIAL_ENABLED
->>>>>>> 5cc72accea606e1721a4193a5d45d49c5516a7fe
 
 // Initialise the first serial port (COM1)
 void serial_init(void) {
