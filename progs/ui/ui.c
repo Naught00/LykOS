@@ -639,7 +639,7 @@ void main(int argc, char **argv) {
 ////	char *hi = "hello from server\n";
 ////	strcpy(p, hi);
 	//exec("client.elf");
-	exec("wexample.elf");
+	//exec("wexample.elf");
 //	node *client = window("Client", 400, 700, 640, 480, defwinflags);
 //	//memset(client->texture, 0xffffff, 640 * 480 * 4);
 //	//memcpy(client->texture, p, 640 * 480 * 4);
@@ -651,6 +651,7 @@ void main(int argc, char **argv) {
 	u8 *scaled = stbi_load_from_memory(scaled_image, sizeof scaled_image, &iw, &ih, &ic, 4);
 	bgr_to_rgb(scaled, iw, ih);
 	node *imgviewer = window("Image Viewer", 200, 300, iw, ih, defwinflags);
+	imgviewer->flags &= ~W_visible;
 	set_pix_target(imgviewer->texture);
 	draw_width = iw;
 	draw_texture_pix((u32 *)scaled, 0, 0, iw, ih);
@@ -659,6 +660,7 @@ void main(int argc, char **argv) {
 
 
 	node *fontviewer = window("stb_truetype", 300, 100, 512, 512, defwinflags);
+	fontviewer->flags &= ~W_visible;
 	stbtt_fontinfo font;
 	u8 *fontbitmap = mmap2(fontviewer->rec.w * fontviewer->rec.h);
 	int bitmapw = fontviewer->rec.w;
@@ -740,11 +742,14 @@ void main(int argc, char **argv) {
 //	window.buf = term_buf;
 
 	
-	//node *win3 = window("3D", 200, 300, 500, 300, defwinflags);
-	//node *win = window("mterm", 100, 100, 500, 300, defwinflags);
-	//node *win2 = window("xd", 400, 600, 500, 300, defwinflags);
+	node *win3 = window("3D", 200, 300, 500, 300, defwinflags);
+	node *win = window("mterm", 100, 100, 500, 300, defwinflags);
+	node *win2 = window("xd", 400, 600, 500, 300, defwinflags);
 	node *bar = window("bar", 0, 0, width, 20, W_visible | N_title);
 	node *launcher = window("launcher", width / 2 - 250, height / 2 - 10, 500, 20, W_visible | N_title | W_draw_border | W_focusable);
+	win3->flags &= ~W_visible;
+	win->flags &= ~W_visible;
+	win2->flags &= ~W_visible;
 	MailboxMessage out;
 	wm_msg msg;
 	int i, j;
@@ -782,8 +787,8 @@ void main(int argc, char **argv) {
 		char evbuf[64] = {0};
 		int evbufi = 0;
 		while (1) {
-			//i64 ret = get_key_event(&ev);
-			i64 ret = 0;
+			i64 ret = get_key_event(&ev);
+			//i64 ret = 0;
 			if (ret == 0) {
 				break;
 			} else if (ev.key == KEY_UP_ARROW) {
@@ -796,7 +801,8 @@ void main(int argc, char **argv) {
 				for (i = 0; i < win_c; i++) {
 					focused_window++;
 					if (focused_window > win_c - 1) focused_window = 0;
-					if (!(windows[focused_window]->flags & W_focusable)) {
+					node *win = windows[focused_window];
+					if (!(win->flags & W_focusable) || !(win->flags & W_visible)) {
 						continue;
 					} else {
 						found = true;
@@ -859,62 +865,62 @@ void main(int argc, char **argv) {
 			}
 			set_pix_target(buf);
 		}
-//		if (win3->flags & W_visible)
-//		{
-//			set_node_target(win3);
-//			draw_background(win3, dark_background);
-//			render3d();
-//			set_pix_target(buf);
-//		}
+		if (win3->flags & W_visible)
+		{
+			set_node_target(win3);
+			draw_background(win3, dark_background);
+			render3d();
+			set_pix_target(buf);
+		}
 
-		//if (win->flags & W_visible)
-		//{
-		//	set_node_target(win);
-		//	draw_background(win, dark_background);
-		//	char *prompt = "/user> ";
-		//	int prompt_len = strlen(prompt) * 8;
-		//	//draw_string(prompt, 0, 0, WHITE);
-		//	//text_draw_string(prompt, 0, 0, &font);
-		//	char *a;
-		//	node *n;
-		//	n = text_input(1, win, "", win->rec, N_focused);
-		//	a = n->buffer;
+		if (win->flags & W_visible)
+		{
+			set_node_target(win);
+			draw_background(win, dark_background);
+			char *prompt = "/user> ";
+			int prompt_len = strlen(prompt) * 8;
+			//draw_string(prompt, 0, 0, WHITE);
+			//text_draw_string(prompt, 0, 0, &font);
+			char *a;
+			node *n;
+			n = text_input(1, win, "", win->rec, N_focused);
+			a = n->buffer;
 
-		//	int x = prompt_len;
-		//	int y = 0;
-		//	//text_draw_string(a, x, 0, &font);
-		//	//while (*a) {
-//		//			draw_char_scaled(*a, x, y, WHITE, 1);
-//		//			x += 8;
-//		//		}
-//		//		*a++;
-		//	//}
-		//	set_pix_target(buf);
-		//}
+			int x = prompt_len;
+			int y = 0;
+			//text_draw_string(a, x, 0, &font);
+			//while (*a) {
+//					draw_char_scaled(*a, x, y, WHITE, 1);
+//					x += 8;
+//				}
+//				*a++;
+			//}
+			set_pix_target(buf);
+		}
 
-		//if (win2->flags & W_visible)
-		//{
-		//	set_node_target(win2);
-		//	draw_background(win2, dark_background);
-		//	//draw_texture(surface);
-		//	char *a;
-		//	node *n;
-		//	n = text_input(2, win2, "", win2->rec, 0);
-		//	a = n->buffer;
+		if (win2->flags & W_visible)
+		{
+			set_node_target(win2);
+			draw_background(win2, dark_background);
+			//draw_texture(surface);
+			char *a;
+			node *n;
+			n = text_input(2, win2, "", win2->rec, 0);
+			a = n->buffer;
 
-		//	int x= 0;
-		//	int y= 0;
-		//	while (*a++) {
-		//		if (*a == '\n') {
-		//			y += 8;
-		//			x = 0;
-		//		} else {
-		//			draw_char_scaled(*a, x, y, WHITE, 1);
-		//			x+=8;
-		//		}
-		//	}
-		//	set_pix_target(buf);
-		//}
+			int x= 0;
+			int y= 0;
+			while (*a++) {
+				if (*a == '\n') {
+					y += 8;
+					x = 0;
+				} else {
+					draw_char_scaled(*a, x, y, WHITE, 1);
+					x+=8;
+				}
+			}
+			set_pix_target(buf);
+		}
 
 		if (focused_window >= 0) {
 			node *focuswin = windows[focused_window];
