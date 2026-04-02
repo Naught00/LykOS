@@ -69,8 +69,8 @@ void draw_logo(void) {
 
   size_t start_x = 0;
   size_t start_y = 0;
-  for (int py = 0; py < height; py++) {
-    for (int px = 0; px < width; px++) {
+  for (u64 py = 0; py < height; py++) {
+    for (u64 px = 0; px < width; px++) {
       // Get pixel from TGA (skip first 2 elements which are width/height)
       u32 pixel = data[2 + (py * width + px)];
       // u32 a = (pixel >> 24) & 0xFF;
@@ -175,6 +175,8 @@ void terminal_process(void) {
       while (key_event_tail != key_event_head) {
         KeyEvent key = key_event_buffer[key_event_tail];
         key_event_tail = (key_event_tail + 1) % KEYBOARD_BUFFER_SIZE;
+        if (key.modifiers & MOD_RELEASE)
+          continue;
         terminal_process_input(key);
       }
     }
