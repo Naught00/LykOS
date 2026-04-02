@@ -36,7 +36,8 @@ int main() {
 		int i, j;
 		KeyEvent ev;
 		while (1) {
-			i64 ret = get_key_event(&ev);
+			//i64 ret = get_key_event(&ev);
+			i64 ret = 0;
 			if (ret == 0) {
 				break;
 			} else if (ev.key == 'j') {

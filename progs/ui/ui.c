@@ -2,10 +2,10 @@
 #include <math.h>
 #include "../../src/vendor/font.h"
 #include <ctype.h>
-#include "keys.h"
 #include "mn.h"
 
 
+#include "../../userspace/libraries/keys.h"
 #include "../../userspace/libraries/mwm/protocol.h"
 
 u8 img_buffer[] = {
@@ -639,7 +639,8 @@ void main(int argc, char **argv) {
 ////	char *hi = "hello from server\n";
 ////	strcpy(p, hi);
 	//exec("client.elf");
-	//exec("wexample.elf");
+//	exec("wexample.elf");
+//	exec("gol.elf");
 //	node *client = window("Client", 400, 700, 640, 480, defwinflags);
 //	//memset(client->texture, 0xffffff, 640 * 480 * 4);
 //	//memcpy(client->texture, p, 640 * 480 * 4);
@@ -752,6 +753,17 @@ void main(int argc, char **argv) {
 	win2->flags &= ~W_visible;
 	MailboxMessage out;
 	wm_msg msg;
+	u64 kb_size;
+	volatile KeyEvent *kb = (KeyEvent *)mmap_keyboard(&kb_size);
+	u64 idx     = 0;
+	u64 last_id = 0;
+	while (1) {
+		u32 next = (idx + 1) % kb_size;
+		if (kb[next].event_id > last_id) {
+			last_id = kb[next].event_id;
+			idx = next;
+		} else break;
+	}
 	int i, j;
 	for (;;) {
 		while (mbox_receive(mboxid, &out)) {
@@ -787,11 +799,16 @@ void main(int argc, char **argv) {
 		char evbuf[64] = {0};
 		int evbufi = 0;
 		while (1) {
-			i64 ret = get_key_event(&ev);
-			//i64 ret = 0;
-			if (ret == 0) {
+			u32 next = (idx + 1) % kb_size;
+			if (kb[next].event_id > last_id) {
+				last_id = kb[next].event_id;
+				ev = kb[next];
+				idx = next;
+				if (ev.modifiers & MOD_RELEASE) continue;
+			} else {
 				break;
-			} else if (ev.key == KEY_UP_ARROW) {
+			}
+			if (ev.key == KEY_UP_ARROW) {
 				diff.y -= 10;
 			} else if (ev.key == '\t') {
 				if (focused_window == -1) focused_window = 0;
@@ -840,31 +857,49 @@ void main(int argc, char **argv) {
 				diff.x += 10;
 			} else if (ev.key >= '!' && ev.key <= '~' || ev.key == '\n') {
 				if (evbufi < sizeof evbuf) {
-					evbuf[evbufi++] = ev.key;
+					//evbuf[evbufi++] = ev.key;
+					set_node_target(launcher);
+					draw_background(launcher, WHITE);
+					static int i;
+					static char cbuf[256];
+					cbuf[i++] = ev.key;
+					int j;
+					int x = 0;
+					for (j = 0; j < strlen(cbuf); j++) {
+						if (cbuf[j] == '\n') {
+							cbuf[strlen(cbuf) - 1] = '\0';
+							exec(cbuf);
+							i = 0;
+							memset(cbuf, 0, sizeof cbuf);
+							break;
+						}
+						draw_char_scaled(cbuf[j], x += 8, 5, BLACK, 1);
+					}
+					set_pix_target(buf);
 				}
 			}
 		}
 
-		if (launcher->flags & W_visible) {
-			set_node_target(launcher);
-			draw_background(launcher, WHITE);
-			node *n;
-			n = text_input(3, launcher, "", launcher->rec, N_focused);
-			int x = 0;
-			j = 0;
-			char c;
-			while (c = n->buffer[j++]) {
-				if (c == '\n') {
-					n->buffer[strlen(n->buffer) - 2] = '\0';
-					exec(n->buffer);
-					memset(n->buffer, 0, sizeof n->buffer);
-					n->buff_i = 0;
-				}
-				draw_char_scaled(c, x, 5, BLACK, 1);
-				x += 8;
-			}
-			set_pix_target(buf);
-		}
+		//if (launcher->flags & W_visible) {
+		//	set_node_target(launcher);
+		//	draw_background(launcher, WHITE);
+		//	node *n;
+		//	n = text_input(3, launcher, "", launcher->rec, N_focused);
+		//	int x = 0;
+		//	j = 0;
+		//	char c;
+		//	while (c = n->buffer[j++]) {
+		//		if (c == '\n') {
+		//			n->buffer[strlen(n->buffer) - 2] = '\0';
+		//			exec(n->buffer);
+		//			memset(n->buffer, 0, sizeof n->buffer);
+		//			n->buff_i = 0;
+		//		}
+		//		draw_char_scaled(c, x, 5, BLACK, 1);
+		//		x += 8;
+		//	}
+		//	set_pix_target(buf);
+		//}
 		if (win3->flags & W_visible)
 		{
 			set_node_target(win3);

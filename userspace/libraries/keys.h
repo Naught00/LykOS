@@ -11,4 +11,4 @@
 #define MOD_SHIFT  (1 << 0)
 #define MOD_CTRL   (1 << 1)
 #define MOD_ALT    (1 << 2)
-
+#define MOD_RELEASE (1 << 3)
