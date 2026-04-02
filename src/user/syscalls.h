@@ -15,3 +15,4 @@ i64 sys_mbox_send(interrupt_frame *frame);
 i64 sys_mbox_receive(interrupt_frame *frame);
 i32 sys_shm_create(interrupt_frame *frame);
 u64 sys_shm_map(interrupt_frame *frame);
+u64 map_key_events(interrupt_frame *frame);

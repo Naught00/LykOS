@@ -23,6 +23,7 @@
 #define MOD_SHIFT  (1 << 0)
 #define MOD_CTRL   (1 << 1)
 #define MOD_ALT    (1 << 2)
+#define MOD_RELEASE (1 << 3)
 
 extern volatile bool shift;
 extern volatile bool ctrl;
@@ -37,7 +38,7 @@ extern volatile u8 keyboard_buffer[KEYBOARD_BUFFER_SIZE];
 extern volatile u8 keyboard_head;
 extern volatile u8 keyboard_tail;
 
-extern volatile KeyEvent key_event_buffer[KEYBOARD_BUFFER_SIZE];
+extern volatile KeyEvent *key_event_buffer;
 extern volatile u8 key_event_head;
 extern volatile u8 key_event_tail;
 

@@ -1,5 +1,6 @@
 #ifndef  TEXT_C
 #define  TEXT_C
+#include "mwm/client.c"
 #include "shapes.h"
 #include "basic.h"
 #include "lykosapi.h"
@@ -46,18 +47,18 @@ u8 *load_font_mem(u8 *font) {
 	return bitmap;
 }
 
-void draw_text(u8 *bitmap, char *text, bool black, float x, float y) {
+void draw_text(u8 *bitmap, char *text, bool black, float *x, float *y) {
 	while (*text) {
 		if (*text == '\n') {
-			y += FONT_SIZE;
-			x = 0;
+			*y += FONT_SIZE;
+			*x = 0;
 		}
 		if (*text == '\t') {
-			x += 4 * FONT_SIZE;
+			*x += 4 * FONT_SIZE;
 		}
 		if (*text >= 32 && *text < 128) {
 			stbtt_aligned_quad q;
-			stbtt_GetBakedQuad(cdata, BITMAP_SIZE,BITMAP_SIZE, *text-32, &x,&y,&q,1);//1=opengl & d3d10+,0=d3d9
+			stbtt_GetBakedQuad(cdata, BITMAP_SIZE,BITMAP_SIZE, *text-32, x,y,&q,1);//1=opengl & d3d10+,0=d3d9
 			int w = q.x1-q.x0;
 			int h = q.y1-q.y0;
 
@@ -79,4 +80,74 @@ void draw_text(u8 *bitmap, char *text, bool black, float x, float y) {
 	}
 	return; 
 }
+
+
+#define _termbuffer_index(index) TERMBUFFER[index % sizeof TERMBUFFER]
+
+void _term_move_head(char *buf, ssize len, int *head) {
+	int i;
+	int count = 0;
+	for (i = *head; count < len; count++, i++) {
+		if (buf[i % 4096] == '\n') {
+			*head = (i + 1) % 4096;
+			return;
+		}
+	}
+}
+
+u8 baked_term_font[] = {
+#embed "../fonts/mono.ttf"
+};
+
+void printf(char *fmt, ...) {
+	static char TERMBUFFER[4096];
+	static int TERM_HEAD;
+	static int term_count;
+	static u8 *TERM_BITMAP; 
+	static s64 TERM_INDEX;
+	static window *win;
+	static bool terminal_init;
+	if (!terminal_init) {
+		TERM_BITMAP = load_font_mem(baked_term_font);
+		win = open_window("Terminal", 100, 100, 400, 600, -1);
+		terminal_init = true;
+	}
+	set_render_target(win);
+        draw_background(WHITE);
+
+	int max_lines = draw_height / FONT_SIZE;
+	static int lines; 
+
+	int j;
+	char line[256] = {0};
+	int len = strlen(fmt);
+	for (j = 0; j < len; j++) {
+		TERMBUFFER[TERM_INDEX % sizeof TERMBUFFER] = fmt[j];
+		TERM_INDEX++;
+		if (term_count < sizeof TERMBUFFER) {
+			term_count++;
+		} 
+		if (fmt[j] == '\n') {
+			if (lines >= max_lines) _term_move_head(TERMBUFFER, term_count, &TERM_HEAD);
+			else lines++;
+		}
+	}
+
+	float x = 0, y = 0;
+	int count = 0;
+	int i;
+	for (i = TERM_HEAD, j = 0; count < term_count; count++) {
+		char c = _termbuffer_index(i);
+		if (!c) break;
+		i++;
+		line[j++] = c;
+		if (c == '\n') {
+			draw_text(TERM_BITMAP, line, true, &x, &y);
+			j = 0;
+			memset(line, 0, sizeof line);
+		}
+	}
+	commit_win(win);
+}
+
 #endif

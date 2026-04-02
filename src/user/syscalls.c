@@ -90,25 +90,28 @@ u64 sys_mmap(interrupt_frame *frame) {
   add_vma(t, addr, addr + (pages * FRAME_SIZE));
   return addr;
 }
-
 u64 map_key_events(interrupt_frame *frame) {
-  (void)frame;
   Task *t = &tasks[current_task];
-  u64 proc_cr3 = t->user_cr3;
-
+  u64 buf_virt = 0xEE000000;
   u64 addr = (u64)key_event_buffer;
+  u64 buf_phys = virt_to_phys((void *)addr);
   u64 buf_size = KEYBOARD_BUFFER_SIZE * sizeof(KeyEvent);
+
+  u64 *out = (u64 *)frame->rdi;
+  *out = KEYBOARD_BUFFER_SIZE;
 
   u64 pages_needed = ALIGN_UP(buf_size, PAGE_SIZE) / PAGE_SIZE;
 
-  u64 flags = PTE_PRESENT | PTE_WRITE | PTE_USER;
+  u64 flags = PTE_PRESENT | PTE_USER;
 
   for (uint64_t i = 0; i < pages_needed; i++) {
     uint64_t offset = i * PAGE_SIZE;
+    map_page(phys_to_virt(t->user_cr3), buf_virt + offset, buf_phys + offset,
+             flags);
   }
 
-  add_vma(t, addr, addr + (pages_needed * FRAME_SIZE));
-  return 1;
+  add_vma(t, buf_virt, addr + (pages_needed * FRAME_SIZE));
+  return buf_virt;
 }
 
 i64 sys_exec(interrupt_frame *frame) {

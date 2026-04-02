@@ -50,19 +50,15 @@ int main() {
 		float x = 0, y = 0;
 		int line_index = 0;
 		for (i = 0, j = 0; i < len; i++) {
-			if (source_file[i] == '\n') {
-				if (line_index >= head) {
-					draw_text(bitmap, line, false, x, y);
-					y += FONT_SIZE;
-					x = 0;
-					j = 0;
-					memset(line, 0, sizeof line);
-					continue;
-				}
-				line_index++;
-
-			}
 			if (line_index >= head) line[j++] = source_file[i];
+			else continue;
+			if (source_file[i] == '\n') {
+				line_index++;
+				draw_text(bitmap, line, false, &x, &y);
+				j = 0;
+				memset(line, 0, sizeof line);
+				continue;
+			}
 		}
 
 		commit_win(win);
