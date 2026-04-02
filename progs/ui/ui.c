@@ -572,6 +572,7 @@ void handle_open(wm_msg *msg) {
 	}
 
 	node *win = window(title, x, y, msg->w, msg->h, msg->flags);
+	set_focus(win);
 	int shmid = shm_create((width * height * BPP), true);
 	if (shmid < 0) {
 		lykos_exit();

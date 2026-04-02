@@ -25,14 +25,9 @@ int main() {
 	win = open_window("test", -1, -1, 640, 480, -1);
 	if (!win) lykos_exit();
 	u8 *bitmap = load_font_mem(font_file);
+	sleep(0);
 
-	int i;
-	int lines = 0;
 	int len = strlen(source_file);
-	for (i = 0; i < len; i++) {
-		if (source_file[i] == '\n') lines++;
-	}
-
 	int head = 0;
 	char line[256] = {0};
 	while (!should_close(win)) {
@@ -56,21 +51,18 @@ int main() {
 		int line_index = 0;
 		for (i = 0, j = 0; i < len; i++) {
 			if (source_file[i] == '\n') {
-				line_index++;
-				if (line_index < head) {
+				if (line_index >= head) {
+					draw_text(bitmap, line, false, x, y);
+					y += FONT_SIZE;
+					x = 0;
 					j = 0;
 					memset(line, 0, sizeof line);
 					continue;
 				}
+				line_index++;
 
-				draw_text(bitmap, line, false, x, y);
-				y += FONT_SIZE;
-				x = 0;
-				j = 0;
-				memset(line, 0, sizeof line);
-				continue;
 			}
-			line[j++] = source_file[i];
+			if (line_index >= head) line[j++] = source_file[i];
 		}
 
 		commit_win(win);
