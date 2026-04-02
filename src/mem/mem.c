@@ -236,8 +236,9 @@ void print_memory_stats(void) {
     }
   }
   u64 free_frames_MB = TO_MB(free_frames * FRAME_SIZE);
+  u64 used_frames_MB = TO_MB(total_usable - (free_frames * FRAME_SIZE));
   terminal_fstring("Free memory (MB): {uint}\n", free_frames_MB);
-  terminal_fstring("Free pages: {uint}\n", free_frames);
+  terminal_fstring("Used memory (MB): {uint}\n", used_frames_MB);
   print_allocation_stats();
 }
 
@@ -257,7 +258,6 @@ void print_paging(void) {
 }
 
 void print_memmap(void) {
-  memmap_init();
   terminal_fstring("\n Total usable~      (MB):{uint}\n", TO_MB(total_usable));
   terminal_fstring("\n Total reclaimable~ (KB):{uint}\n", TO_KB(reclaimable));
   terminal_fstring("\n Total bad~         (KB):{uint}\n", TO_KB(bad));

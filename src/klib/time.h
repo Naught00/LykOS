@@ -4,7 +4,7 @@
 #include "req.h"
 
 void ticks_to_time(u64 ticks, char out[9]);
-static inline u64 ms_to_ticks(u64 ms) { return ms / 10; }
+static inline u64 ms_to_ticks(u64 ms) { return ms * PIT_FREQ_HZ / 1000; }
 
 u64 get_seconds(void);
 u64 get_minutes(void);

@@ -4,9 +4,8 @@
 #include <stdint.h>
 
 #define COM1 0x3F8 // Base I/O port for COM1
-#define SERIAL_ENABLED 1
+#define SERIAL_ENABLED
 
-// #define SERIAL_ENABLED
 // Initialise the first serial port (COM1)
 void serial_init(void) {
   outb(COM1 + 1, 0x00); // Disable interrupts

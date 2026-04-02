@@ -211,5 +211,8 @@ void isr_syscall(interrupt_frame *frame) {
   case 11:
     frame->rax = sys_shm_map(frame);
     break;
+  case 12:
+    frame->rax = map_key_events(frame);
+    break;
   }
 }

@@ -9,7 +9,10 @@ i32 shm_create(u64 size, bool public) {
   for (int i = 0; i < MAX_SHM_REGIONS; i++) {
     if (!shm_regions[i].is_active) {
       ShmRegion *shm = &shm_regions[i];
-      u64 phys_addr = virt_to_phys(kalloc(size));
+
+      u64 pages_needed = ALIGN_UP(size, PAGE_SIZE) / PAGE_SIZE;
+      u64 phys_addr = virt_to_phys(alloc_frames(pages_needed));
+
       *shm = (ShmRegion){
           .is_active = true,
           .owner_pid = current_task,

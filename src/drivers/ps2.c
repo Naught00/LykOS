@@ -1,6 +1,7 @@
 #include "ps2.h"
 #include "arch/x86_64/io.h"
 #include "drivers/serial.h"
+#include "mem/mem.h"
 #include "proc/task.h"
 #include "terminal.h"
 #include <graphics/draw.h>
@@ -25,7 +26,7 @@ volatile bool arrow_right = false;
 
 volatile u8 key_event_head = 0;
 volatile u8 key_event_tail = 0;
-volatile KeyEvent key_event_buffer[KEYBOARD_BUFFER_SIZE];
+volatile KeyEvent *key_event_buffer;
 
 void isr_ps2_keyboard(interrupt_frame *frame) {
   (void)frame;
@@ -40,11 +41,18 @@ void isr_ps2_keyboard(interrupt_frame *frame) {
 }
 
 #define EXTENDED 0xE0
+u64 key_event_id = 0;
 
 void keyboard_process(void) {
+  u64 buf_size = KEYBOARD_BUFFER_SIZE * sizeof(KeyEvent);
+  u64 pages = ALIGN_UP(buf_size, PAGE_SIZE) / PAGE_SIZE;
+  key_event_buffer = (volatile KeyEvent *)alloc_frames(pages);
+  memset((void *)key_event_buffer, 0, buf_size);
+
   static bool extended = false;
   while (1) {
     while (keyboard_tail != keyboard_head) {
+      u8 mods = 0;
       u64 sc = keyboard_buffer[keyboard_tail];
       keyboard_tail = (keyboard_tail + 1) % KEYBOARD_BUFFER_SIZE;
 
@@ -55,6 +63,8 @@ void keyboard_process(void) {
 
       bool is_release = sc & 0x80;
       sc &= 0x7F;
+      if (is_release)
+        mods |= MOD_RELEASE;
 
       switch (sc) {
       case 0x2A:
@@ -68,12 +78,6 @@ void keyboard_process(void) {
         continue;
       }
 
-      if (is_release) {
-        extended = false;
-        continue;
-      }
-
-      u8 mods = 0;
       if (shift)
         mods |= MOD_SHIFT;
       if (ctrl)
@@ -83,9 +87,6 @@ void keyboard_process(void) {
 
       if (extended) {
         extended = false;
-
-        if (is_release)
-          continue;
 
         switch (sc) {
         case 0x48:
@@ -129,14 +130,13 @@ void keyboard_process(void) {
         }
       }
 
-      u8 next = (key_event_head + 1) % KEYBOARD_BUFFER_SIZE;
-      if (next != key_event_tail) {
-        if (key == KEY_ESCAPE)
-          terminal_fstring("ESCAPE");
-
-        key_event_buffer[key_event_head] = (KeyEvent){key, mods};
-        key_event_head = next;
+      u64 next = (key_event_head + 1) % KEYBOARD_BUFFER_SIZE;
+      if (next == key_event_tail) {
+        key_event_tail = (key_event_tail + 1) % KEYBOARD_BUFFER_SIZE;
       }
+      key_event_buffer[key_event_head] = (KeyEvent){key_event_id, key, mods};
+      key_event_id++;
+      key_event_head = next;
     }
     preempt_check();
   }
