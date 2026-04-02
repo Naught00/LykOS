@@ -1,2 +1,2 @@
 all: 
-	make -C programs/*
+	make -C programs/window_example

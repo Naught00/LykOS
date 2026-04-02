@@ -1,16 +1,28 @@
+#ifndef GRAPHICS_C
+#define GRAPHICS_C
 #include <math.h>
 #include "shapes.h"
+#include "mwm/client.c"
 
 typedef struct color {
 	uint8_t r, g, b, a;
 } color;
 
 color RED = {0, 0, 255, 255};
+color WHITE = {255, 255, 255, 255};
+color BLACK = {0, 0, 0, 255};
 
 int draw_width;
 int draw_height;
 #define BPP 4
 volatile uint32_t *pixels;
+
+void set_render_target_pix(volatile u32 *buf, int width, int height) {
+	draw_width  = width;
+	draw_height = height;
+	pixels      = buf;
+	return;
+}
 
 void draw_pixel(int x, int y, color c) {
 	if (x < 0 || y < 0 || x >= draw_width || y >= draw_height) return;
@@ -123,7 +135,6 @@ vector3f rotate_xz(vector3f p, float angle) {
 
 
 //depends on windowing system
-#ifdef MWM_CLIENT
 void set_render_target(window *win) {
 	draw_width = win->rec.w;
 	draw_height = win->rec.h;

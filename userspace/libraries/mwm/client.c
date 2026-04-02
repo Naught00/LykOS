@@ -28,26 +28,27 @@ struct window {
 
 stack(window, 20) nodes;
 
-atomic bool init = false;
-int mboxid;
+atomic bool mwmc_init = false;
+int mwmc_mboxid;
 int DEFWINFLAGS = W_visible | W_draw_decoration | W_draw_border | W_focusable | W_movable;
 
 void init_client() {
-	mboxid = mbox_create(-1); 
-	if (mboxid < 0) lykos_exit();
-	init = true;
+	mwmc_mboxid = mbox_create(-1); 
+	if (mwmc_mboxid < 0) lykos_exit();
+	mwmc_init = true;
 	return;
 }
 
 window *open_window(char *title, int x, int y, int w, int h, unsigned int flags) {
+	if (!mwmc_init) {
+		init_client();
+	}
+
 	size_t sz;
 	MailboxMessage out;
 	wm_msg msg;
 	window *np;
-
-	if (!init) {
-		init_client();
-	}
+	int mboxid = mwmc_mboxid;
 
 	if (flags == -1) {
 		flags = DEFWINFLAGS;
@@ -64,7 +65,11 @@ window *open_window(char *title, int x, int y, int w, int h, unsigned int flags)
 	msg.h = h;
 	msg.flags = flags;
 	msg.mailbox = mboxid;
-	mbox_send(0, &msg, sizeof(msg));
+	int ret = mbox_send(0, &msg, sizeof(msg));
+	if (ret < 0) {
+		write("Could not connect to the window manager. Is it running?\n");
+		return null;
+	}
 
 	np = &stack_next(nodes);
 	np->id = nodes.sp - 1;
@@ -79,8 +84,7 @@ window *open_window(char *title, int x, int y, int w, int h, unsigned int flags)
 	//FIXME sleep on rec
 	while (1) {
 		while (!mbox_receive(mboxid, &out)) {
-			sleep(1);
-			continue;
+			sleep(0);
 		}
 
 		msg = *(wm_msg *) out.data;
@@ -149,7 +153,7 @@ void poll_keys(window *) {
 void check_messages() {
 	wm_msg msg;
 	MailboxMessage out;
-	while (mbox_receive(mboxid, &out)) {
+	while (mbox_receive(mwmc_mboxid, &out)) {
 		msg = *(wm_msg *) out.data;
 		//todo
 		//if (valid_msg) 
