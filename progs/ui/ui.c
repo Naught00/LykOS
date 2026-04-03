@@ -1,12 +1,12 @@
-#include "syscalls.h"
 #include <math.h>
 #include "../../src/vendor/font.h"
 #include <ctype.h>
 #include "mn.h"
 
 
-#include "../../userspace/libraries/keys.h"
-#include "../../userspace/libraries/mwm/protocol.h"
+#include "keys.h"
+#include "mwm/protocol.h"
+#include "../../userspace/libraries/lykosapi.h"
 
 u8 img_buffer[] = {
 #embed "snow.jpg"
@@ -603,6 +603,18 @@ void handle_msg(wm_msg *msg) {
 	}
 }
 
+void send_key(node *win, KeyEvent key) {
+	if (win->client_mbox < 0)
+		return;
+
+	wm_msg msg;
+	msg.type = WM_key;
+	msg.key_event = key;
+	msg.window_id = win->window_id;
+	mbox_send(win->client_mbox, &msg, sizeof msg);
+	return;
+}
+
 void send_msg(node *win, enum wm_msg_type type) {
 	if (win->client_mbox < 0)
 		return;
@@ -764,6 +776,7 @@ void main(int argc, char **argv) {
 			idx = next;
 		} else break;
 	}
+
 	int i, j;
 	for (;;) {
 		while (mbox_receive(mboxid, &out)) {
@@ -808,9 +821,9 @@ void main(int argc, char **argv) {
 			} else {
 				break;
 			}
-			if (ev.key == KEY_UP_ARROW) {
-				diff.y -= 10;
-			} else if (ev.key == '\t') {
+			bool alt = ev.modifiers & MOD_CTRL;
+
+			if (ev.key == '\t') {
 				if (focused_window == -1) focused_window = 0;
 				send_msg(windows[focused_window], WM_unfocus);
 				int i;
@@ -828,9 +841,9 @@ void main(int argc, char **argv) {
 				}
 				if (!found) focused_window = -1;
 				else send_msg(windows[focused_window], WM_focus);
-			} else if (ev.key == 27) {
+			} else if (ev.key == KEY_ESCAPE) {
 				lykos_exit();
-			} else if (ev.key == 'q' && ev.modifiers & MOD_CTRL) {
+			} else if (alt && ev.key == 'q') {
 				if (windows[focused_window]) {
 					node *win = windows[focused_window];
 					if (win->flags & W_visible) {
@@ -841,21 +854,26 @@ void main(int argc, char **argv) {
 					remove_window(win);
 					send_msg(win, WM_close);
 				}
-			} else if (ev.key == 'd' && ev.modifiers & MOD_CTRL) {
+			} else if (alt && ev.key == 'd') {
 				if (launcher->flags & W_visible) {
 					launcher->flags &= ~W_visible;
 				} else {
 					launcher->flags |= W_visible;
 					set_focus(launcher);
-					
 				}
+			} else if (ev.key == KEY_UP_ARROW) {
+				diff.y -= 10;
 			} else if (ev.key == KEY_DOWN_ARROW) {
 				diff.y += 10;
 			} else if (ev.key == KEY_LEFT_ARROW) {
 				diff.x -= 10;
 			} else if (ev.key == KEY_RIGHT_ARROW) {
 				diff.x += 10;
-			} else if (ev.key >= '!' && ev.key <= '~' || ev.key == '\n') {
+			} else {
+				if (focused_window >= 0) {
+					node *win = windows[focused_window];
+					send_key(win, ev);
+				} 
 				if (evbufi < sizeof evbuf) {
 					//evbuf[evbufi++] = ev.key;
 					set_node_target(launcher);

@@ -1,4 +1,6 @@
 #include <stdint.h>
+#include "keys.h"
+#include "lykosapi.h"
 
 #define MAX_TITLE 32
 #define DISPLAY 0
@@ -9,6 +11,8 @@ enum wm_msg_type {
 	WM_commit,
 	WM_focus,
 	WM_unfocus,
+
+	WM_key,
 };
 
 enum window_flags {
@@ -37,5 +41,7 @@ typedef struct wm_msg {
 		struct {
 			int shm_id;
 		};
+		//WM_key
+		KeyEvent key_event;
 	};
 } wm_msg;

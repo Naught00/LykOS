@@ -22,6 +22,9 @@ struct window {
 	};
 	rectangle rec;
 	volatile uint32_t *surface;
+
+	stack(KeyEvent, 16) keybuffer;
+
 	unsigned int flags;
 	unsigned int local_flags;
 };
@@ -157,7 +160,7 @@ void check_messages() {
 		msg = *(wm_msg *) out.data;
 		//todo
 		//if (valid_msg) 
-			window *win = get_window_by_win_id(msg.window_id);
+		window *win = get_window_by_win_id(msg.window_id);
 		switch (msg.type) {
 		case WM_close:
 			win->local_flags |= WC_should_close;
@@ -167,6 +170,9 @@ void check_messages() {
 			break;
 		case WM_unfocus:
 			win->local_flags &= ~WC_has_focus;
+			break;
+		case WM_key:
+			push(win->keybuffer, msg.key_event);
 			break;
 		default: break;
 		}

@@ -20,6 +20,9 @@ char source_file[] = {
 
 char *str = "this is a test with text\n";
 
+#define key_events(win) win->keybuffer.sp
+#define next_key(win) pop(win->keybuffer)
+
 int main() {
 	window *win;
 	win = open_window("test", -1, -1, 640, 480, -1);
@@ -27,34 +30,43 @@ int main() {
 	u8 *bitmap = load_font_mem(font_file);
 	sleep(0);
 
+	int i, j;
 	int len = strlen(source_file);
+	int linec = 0;
+	for (i = 0; i < len; i++) {
+		if (source_file[i] == '\n') {
+			linec++;
+		}
+	}
 	int head = 0;
 	char line[256] = {0};
 	while (!should_close(win)) {
+		check_messages();
 		set_render_target(win);
 		draw_background(BLACK);
-		int i, j;
-		KeyEvent ev;
-		while (1) {
-			//i64 ret = get_key_event(&ev);
-			i64 ret = 0;
-			if (ret == 0) {
+		KeyEvent key_event;
+		while (key_events(win)) {
+			key_event = next_key(win);
+			switch (key_event.key) {
+			case 'j':
+				if (head < linec) head += 1;
 				break;
-			} else if (ev.key == 'j') {
-				head += 1;
-			} else if (ev.key == 'k') {
-				head -= 1;
-			} else if (ev.key == 'q') {
+			case 'k':
+				if (head >= 0) head -= 1;
+				break;
+			case 'q':
 				write("Q PRESSED!\n");
+				break;
 			}
 		}
 		float x = 0, y = 0;
 		int line_index = 0;
 		for (i = 0, j = 0; i < len; i++) {
 			if (line_index >= head) line[j++] = source_file[i];
-			else continue;
 			if (source_file[i] == '\n') {
 				line_index++;
+				if (line_index <= head) continue;
+
 				draw_text(bitmap, line, false, &x, &y);
 				j = 0;
 				memset(line, 0, sizeof line);
@@ -64,7 +76,6 @@ int main() {
 
 		commit_win(win);
 		sleep(16);
-		check_messages();
 	}
 	close_window(win);
 	return 0;

@@ -3,6 +3,7 @@
 #include <stdbool.h>
 
 typedef struct{
+  u64 event_id;
   u16 key;
   u8 modifiers;
 } KeyEvent;
@@ -27,6 +28,7 @@ typedef struct {
 #define SYS_MAILBOX_RECEIVE 9
 #define SYS_SHM_CREATE 10
 #define SYS_SHM_MAP 11
+#define SYS_MAP_KEYS 12
 
 // a = rax, D = rdi, S = rsi, d = rdx
 // syscall with 0 args
@@ -95,3 +97,7 @@ static inline i64 mbox_receive(u64 id, MailboxMessage *out) { return syscall2(SY
 static inline i32 shm_create(u64 size, bool public) { return syscall2(SYS_SHM_CREATE, size, public); }
 
 static inline void *shm_map(i32 region_id, u64* out_size) { return (void *)syscall2(SYS_SHM_MAP, region_id, (u64)out_size); }
+
+static inline u64 mmap_keyboard(u64 *out_size) {
+  return syscall1(SYS_MAP_KEYS, (u64)out_size);
+}
