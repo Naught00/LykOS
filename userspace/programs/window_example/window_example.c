@@ -28,7 +28,6 @@ int main() {
 	win = open_window("test", -1, -1, 640, 480, -1);
 	if (!win) lykos_exit();
 	u8 *bitmap = load_font_mem(font_file);
-	sleep(0);
 
 	int i, j;
 	int len = strlen(source_file);
@@ -67,7 +66,7 @@ int main() {
 				line_index++;
 				if (line_index <= head) continue;
 
-				draw_text(bitmap, line, false, &x, &y);
+				draw_text_pro(bitmap, line, false, &x, &y);
 				j = 0;
 				memset(line, 0, sizeof line);
 				continue;

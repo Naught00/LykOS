@@ -47,7 +47,8 @@ u8 *load_font_mem(u8 *font) {
 	return bitmap;
 }
 
-void draw_text(u8 *bitmap, char *text, bool black, float *x, float *y) {
+
+void draw_text_pro(u8 *bitmap, char *text, bool black, float *x, float *y) {
 	while (*text) {
 		if (*text == '\n') {
 			*y += FONT_SIZE;
@@ -79,6 +80,10 @@ void draw_text(u8 *bitmap, char *text, bool black, float *x, float *y) {
 		++text;
 	}
 	return; 
+}
+
+void draw_text(u8 *bitmap, char *text, bool black, float x, float y) {
+	draw_text_pro(bitmap, text, black, &x, &y);
 }
 
 
@@ -142,7 +147,7 @@ void printf(char *fmt, ...) {
 		i++;
 		line[j++] = c;
 		if (c == '\n') {
-			draw_text(TERM_BITMAP, line, true, &x, &y);
+			draw_text_pro(TERM_BITMAP, line, true, &x, &y);
 			j = 0;
 			memset(line, 0, sizeof line);
 		}
