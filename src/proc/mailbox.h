@@ -17,7 +17,7 @@ typedef struct {
 
   u64 id;
   i64 owner_pid;
-  u64 sleeping_pid;
+  i64 sleeping_pid;
 
   u64 head;
   u64 tail;
@@ -31,5 +31,5 @@ extern Mailbox mailboxes[MAX_MAILBOXES];
 
 i64 mbox_create(i64 mailbox_id);
 i64 mbox_send(u64 mailbox_id, char *data, u64 data_len);
-i64 mbox_receive(u64 mailbox_id, MailboxMessage *out);
+i64 mbox_receive(u64 mailbox_id, MailboxMessage *out, bool blocking);
 i64 mbox_delete(u64 mailbox_id);

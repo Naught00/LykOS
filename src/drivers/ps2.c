@@ -55,6 +55,7 @@ void keyboard_process(void) {
       u8 mods = 0;
       u64 sc = keyboard_buffer[keyboard_tail];
       keyboard_tail = (keyboard_tail + 1) % KEYBOARD_BUFFER_SIZE;
+      serial_fstring("sc {uint}\n", sc);
 
       if (sc == EXTENDED) {
         extended = true;
@@ -84,11 +85,13 @@ void keyboard_process(void) {
         mods |= MOD_CTRL;
 
       u16 key = 0;
-
       if (extended) {
         extended = false;
 
         switch (sc) {
+        case 0x5B:
+          key = KEY_LEFT_META;
+          break;
         case 0x48:
           key = KEY_UP_ARROW;
           break;

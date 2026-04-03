@@ -19,6 +19,7 @@
 #define KEY_DOWN_ARROW 302
 #define KEY_LEFT_ARROW 303
 #define KEY_RIGHT_ARROW 304
+#define KEY_LEFT_META 305
 
 #define MOD_SHIFT  (1 << 0)
 #define MOD_CTRL   (1 << 1)

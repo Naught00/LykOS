@@ -140,11 +140,7 @@ void isr_gpf(interrupt_frame *frame) {
 void isr_pit(interrupt_frame *frame) {
   (void)frame;
   pit_tick();
-  serial_fstring("tick pit 876\n");
 
-  // debug, laggy
-  // serial_fstring("timer cr3 = {uint}\n", cr3);
-  // serial_fstring("kernel cr3 = {uint}\n", virt_to_phys((void *)kernel_pml4));
   wake_sleeping_tasks();
 
   if (current_task >= 0) {

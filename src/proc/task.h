@@ -21,6 +21,7 @@ typedef struct Registers {
   X(TASK_READY)                                                                \
   X(TASK_RUNNING)                                                              \
   X(TASK_BLOCKED)                                                              \
+  X(TASK_SLEEPING)                                                              \
   X(TASK_DEAD)
 
 enum task_state {

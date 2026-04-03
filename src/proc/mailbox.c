@@ -1,7 +1,6 @@
 #include "mailbox.h"
 #include "drivers/serial.h"
 #include "proc/task.h"
-#include "terminal.h"
 
 Mailbox mailboxes[MAX_MAILBOXES];
 
@@ -61,6 +60,10 @@ i64 mbox_send(u64 mailbox_id, char *data, u64 data_len) {
   mbox->queue[mbox->tail] = *msg;
   mbox->tail = (mbox->tail + 1) % MAILBOX_CAPACITY;
   mbox->count++;
+  if (mbox->sleeping_pid) {
+    tasks[mbox->sleeping_pid].state = TASK_READY;
+    serial_fstring("Waking up task {uint}\n", mbox->sleeping_pid);
+  }
   serial_fstring("[MBOX] Count {uint}\n", mbox->count);
 
   // wakeup mbox->sleeping_pid
@@ -69,7 +72,7 @@ i64 mbox_send(u64 mailbox_id, char *data, u64 data_len) {
   return 1;
 }
 
-i64 mbox_receive(u64 mailbox_id, MailboxMessage *out) {
+i64 mbox_receive(u64 mailbox_id, MailboxMessage *out, bool blocking) {
   if (mailbox_id < 0 || mailbox_id > MAX_MAILBOXES) {
     serial_writeln("[MBOX RECEIVE] Invalid ID");
     return -1;
@@ -82,9 +85,18 @@ i64 mbox_receive(u64 mailbox_id, MailboxMessage *out) {
     return -2;
   }
 
-  if (mbox->count == 0) {
-    serial_writeln("[MBOX RECEIVE] Mailbox empty");
-    return 0;
+  while (mbox->count == 0) {
+    serial_fstring("[MBOX RECEIVE] Mailbox empty");
+
+    if (blocking) {
+      serial_fstring("proc {str} blocking on mailbox {uint}\n",
+                     tasks[current_task].name, mailbox_id);
+      mbox->sleeping_pid = current_task;
+      tasks[current_task].state = TASK_BLOCKED;
+      yield();
+    } else {
+      return 0;
+    }
   }
 
   *out = mbox->queue[mbox->head];

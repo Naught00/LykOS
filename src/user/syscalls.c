@@ -136,7 +136,8 @@ i64 sys_mbox_send(interrupt_frame *frame) {
 i64 sys_mbox_receive(interrupt_frame *frame) {
   u64 id = frame->rdi;
   MailboxMessage *out = (MailboxMessage *)frame->rsi;
-  return mbox_receive(id, out);
+  bool blocking = (bool)frame->rdx;
+  return mbox_receive(id, out, blocking);
 }
 
 i32 sys_shm_create(interrupt_frame *frame) {

@@ -44,7 +44,6 @@ int task_create(const char *name, void (*entry)(void)) {
   }
 
   u64 stack_top = ((u64)t->stack + TASK_STACK_SIZE) & ~0xFULL;
-
   // fake return address so if entry() returns, it goes to task_exit
   stack_top -= 8;
   *(u64 *)stack_top = (u64)task_exit;
@@ -139,7 +138,6 @@ void yield(void) {
                  next->regs.rip, next->regs.rsp);
   serial_fstring("  rsp before switch = {hex}\n", tasks[prev].regs.rsp);
   serial_fstring("Saving {str}\n", tasks[prev].name);
-  asm volatile("sti");
   switch_task(&tasks[prev].regs, &next->regs);
 
 end:
@@ -258,7 +256,7 @@ void task_sleep(u64 ms) {
   Task *t = &tasks[current_task];
 
   t->wakeup_tick = pit_get_ticks() + ms_to_ticks(ms);
-  t->state = TASK_BLOCKED;
+  t->state = TASK_SLEEPING;
 
   asm volatile("sti");
 
@@ -268,7 +266,7 @@ void task_sleep(u64 ms) {
 void wake_sleeping_tasks(void) {
   for (int task_id = 0; task_id < task_count; task_id++) {
     Task *t = &tasks[task_id];
-    if (t->state == TASK_BLOCKED) {
+    if (t->state == TASK_SLEEPING) {
       if (pit_get_ticks() >= t->wakeup_tick) {
         t->state = TASK_READY;
       }
@@ -323,6 +321,7 @@ int task_create_elf(const char *name, void *file) {
   t->user_cr3 = virt_to_phys((void *)proc_addr_space);
 
   t->state = TASK_READY;
+  t->vma_list = NULL;
   t->slice = TASK_SLICE_DEFAULT;
   t->name = name_cpy;
   t->wakeup_tick = 0;
