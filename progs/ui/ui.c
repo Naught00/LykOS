@@ -562,16 +562,18 @@ void handle_open(wm_msg *msg) {
 	//@Arena
 	char *title = mmap2(MAX_TITLE);
 	strcpy(title, msg->title);
-	int x, y;
-	if (msg->x < 0 || msg->y < 0) {
-		x = (width / 2)  - msg->w / 2;
-		y = (height / 2) - msg->h / 2;
-	} else {
-		x = msg->x;
-		y = msg->y;
-	}
 
-	node *win = window(title, x, y, msg->w, msg->h, msg->flags);
+	int x, y, w, h;
+	if (msg->x < 0) x = (width / 2)  - msg->w / 2;
+	else x = msg->x;
+	if (msg->y < 0) y = (height / 2) - msg->h / 2;
+	else y = msg->y;
+	if (msg->w < 0) w = width;
+	else w = msg->w;
+	if (msg->h < 0) h = height;
+	else h = msg->h;
+
+	node *win = window(title, x, y, w, h, msg->flags);
 	set_focus(win);
 	int shmid = shm_create((width * height * BPP), true);
 	if (shmid < 0) {
@@ -589,10 +591,11 @@ void handle_open(wm_msg *msg) {
 	response.type = WM_ok;
 	response.shm_id = shmid;
 	response.window_id = win->window_id;
+	response.given_x = x;
+	response.given_y = y;
+	response.given_w = w;
+	response.given_h = h;
 	int ret = mbox_send(msg->mailbox, &response, sizeof response);
-	if (ret < 0)  {
-		lykos_exit();
-	}
 	return;
 }
 
@@ -652,7 +655,6 @@ void main(int argc, char **argv) {
 ////	strcpy(p, hi);
 	//exec("client.elf");
 //	exec("wexample.elf");
-//	exec("gol.elf");
 //	node *client = window("Client", 400, 700, 640, 480, defwinflags);
 //	//memset(client->texture, 0xffffff, 640 * 480 * 4);
 //	//memcpy(client->texture, p, 640 * 480 * 4);
@@ -758,8 +760,8 @@ void main(int argc, char **argv) {
 	node *win3 = window("3D", 200, 300, 500, 300, defwinflags);
 	node *win = window("mterm", 100, 100, 500, 300, defwinflags);
 	node *win2 = window("xd", 400, 600, 500, 300, defwinflags);
-	node *bar = window("bar", 0, 0, width, 20, W_visible | N_title);
-	node *launcher = window("launcher", width / 2 - 250, height / 2 - 10, 500, 20, W_visible | N_title | W_draw_border | W_focusable);
+	//node *bar = window("bar", 0, 0, width, 20, W_visible | N_title);
+	//node *launcher = window("launcher", width / 2 - 250, height / 2 - 10, 500, 20, W_visible | N_title | W_draw_border | W_focusable);
 	win3->flags &= ~W_visible;
 	win->flags &= ~W_visible;
 	win2->flags &= ~W_visible;
@@ -778,6 +780,8 @@ void main(int argc, char **argv) {
 	}
 
 	int i, j;
+	exec("bar.elf");
+	exec("launcher.elf");
 	for (;;) {
 		while (mbox_receive(mboxid, &out)) {
 			//if (valid_msg)
@@ -855,12 +859,7 @@ void main(int argc, char **argv) {
 					send_msg(win, WM_close);
 				}
 			} else if (alt && ev.key == 'd') {
-				if (launcher->flags & W_visible) {
-					launcher->flags &= ~W_visible;
-				} else {
-					launcher->flags |= W_visible;
-					set_focus(launcher);
-				}
+				exec("launcher.elf");
 			} else if (ev.key == KEY_UP_ARROW) {
 				diff.y -= 10;
 			} else if (ev.key == KEY_DOWN_ARROW) {
@@ -874,27 +873,27 @@ void main(int argc, char **argv) {
 					node *win = windows[focused_window];
 					send_key(win, ev);
 				} 
-				if (evbufi < sizeof evbuf) {
-					//evbuf[evbufi++] = ev.key;
-					set_node_target(launcher);
-					draw_background(launcher, WHITE);
-					static int i;
-					static char cbuf[256];
-					cbuf[i++] = ev.key;
-					int j;
-					int x = 0;
-					for (j = 0; j < strlen(cbuf); j++) {
-						if (cbuf[j] == '\n') {
-							cbuf[strlen(cbuf) - 1] = '\0';
-							exec(cbuf);
-							i = 0;
-							memset(cbuf, 0, sizeof cbuf);
-							break;
-						}
-						draw_char_scaled(cbuf[j], x += 8, 5, BLACK, 1);
-					}
-					set_pix_target(buf);
-				}
+				//if (evbufi < sizeof evbuf) {
+				//	//evbuf[evbufi++] = ev.key;
+				//	set_node_target(launcher);
+				//	draw_background(launcher, WHITE);
+				//	static int i;
+				//	static char cbuf[256];
+				//	cbuf[i++] = ev.key;
+				//	int j;
+				//	int x = 0;
+				//	for (j = 0; j < strlen(cbuf); j++) {
+				//		if (cbuf[j] == '\n') {
+				//			cbuf[strlen(cbuf) - 1] = '\0';
+				//			exec(cbuf);
+				//			i = 0;
+				//			memset(cbuf, 0, sizeof cbuf);
+				//			break;
+				//		}
+				//		draw_char_scaled(cbuf[j], x += 8, 5, BLACK, 1);
+				//	}
+				//	set_pix_target(buf);
+				//}
 			}
 		}
 
@@ -988,12 +987,12 @@ void main(int argc, char **argv) {
 
 		//clientwins[0]->rec.x += 5;
 		
-		set_node_target(bar);
-		draw_background(bar, WHITE);
-		draw_string("Applications File Edit View", 5, 5, BLACK);
-		if (focused_window >= 0)
-			draw_string(windows[focused_window]->title, 30 * 8 , 5, BLACK);
-		set_pix_target(buf);
+		//set_node_target(bar);
+		//draw_background(bar, WHITE);
+		//draw_string("Applications File Edit View", 5, 5, BLACK);
+		//if (focused_window >= 0)
+		//	draw_string(windows[focused_window]->title, 30 * 8 , 5, BLACK);
+		//set_pix_target(buf);
 
 		for (i = 0; i < node_c; i++) {
 			node *np = &nodes[i];

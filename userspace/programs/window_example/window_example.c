@@ -20,9 +20,6 @@ char source_file[] = {
 
 char *str = "this is a test with text\n";
 
-#define key_events(win) win->keybuffer.sp
-#define next_key(win) pop(win->keybuffer)
-
 int main() {
 	window *win;
 	win = open_window("test", -1, -1, 640, 480, -1);

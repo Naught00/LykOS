@@ -39,8 +39,13 @@ typedef struct wm_msg {
 		};
 		//WM_ok
 		struct {
+			int given_x;
+			int given_y;
+			int given_w;
+			int given_h;
 			int shm_id;
 		};
+
 		//WM_key
 		KeyEvent key_event;
 	};

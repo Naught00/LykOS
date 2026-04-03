@@ -78,7 +78,6 @@ window *open_window(char *title, int x, int y, int w, int h, unsigned int flags)
 	np->id = nodes.sp - 1;
 	np->title = title;
 	//np->window_id = win_c;
-	np->rec = (rectangle){x, y, w, h};
 	np->flags = flags;
 	np->local_flags = 0;
 	//windows[win_c++] = np;
@@ -95,6 +94,12 @@ window *open_window(char *title, int x, int y, int w, int h, unsigned int flags)
 			np->window_id = msg.window_id;
 			uint32_t *surface = shm_map(msg.shm_id, &sz);
 			np->surface = surface;
+			np->rec = (rectangle) {
+				.x = msg.given_x,
+				.y = msg.given_y,
+				.w = msg.given_w,
+				.h = msg.given_h,
+			};
 			break;
 		} 
 	}
@@ -191,4 +196,7 @@ void check_messages() {
 
 #define should_close(win) (win->local_flags & WC_should_close)
 #define has_focus(win) (win->local_flags & WC_has_focus)
+#define key_events(win) win->keybuffer.sp
+#define next_key(win) pop(win->keybuffer)
+
 #endif

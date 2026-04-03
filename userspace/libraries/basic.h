@@ -37,6 +37,8 @@ typedef unsigned char byte;
 #define stack_next(s) s.stack[s.sp++]
 #define stack_index(s, i) s.stack[i]
 #define modtop(s, v) s.stack[s.sp - 1] = v
+#define stack_zero(s) memset(s.stack, 0, sizeof s.stack)
+#define stack_reset(s) stack_zero(s), s.sp = 0
 
 /* Strings */
 #define streq(a,b) (strcmp((a),(b)) == 0)
