@@ -85,8 +85,8 @@ window *open_window(char *title, int x, int y, int w, int h, unsigned int flags)
 	memset(&msg, 0, sizeof msg);
 	//FIXME sleep on rec
 	while (1) {
-		while (!mbox_receive(mboxid, &out)) {
-			sleep(1);
+		while (!mbox_receive(mboxid, &out, 0)) {
+			sleep(10);
 		}
 
 		msg = *(wm_msg *) out.data;
@@ -158,10 +158,10 @@ bool is_key_pressed(char k) {
 void poll_keys(window *) {
 }
 
-void check_messages() {
+void _check_messages(bool block) {
 	wm_msg msg;
 	MailboxMessage out;
-	while (mbox_receive(mwmc_mboxid, &out)) {
+	while (mbox_receive(mwmc_mboxid, &out, 0)) {
 		msg = *(wm_msg *) out.data;
 		//todo
 		//if (valid_msg) 
@@ -191,6 +191,13 @@ void check_messages() {
 		}
 	}
 	return;
+}
+
+void check_messages(void) {
+	_check_messages(false);
+}
+void check_messages_block(void) {
+	_check_messages(true);
 }
 
 

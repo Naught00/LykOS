@@ -674,20 +674,20 @@ void main(int argc, char **argv) {
 
 
 
-	node *fontviewer = window("stb_truetype", 300, 100, 512, 512, defwinflags);
-	fontviewer->flags &= ~W_visible;
-	stbtt_fontinfo font;
-	u8 *fontbitmap = mmap2(fontviewer->rec.w * fontviewer->rec.h);
-	int bitmapw = fontviewer->rec.w;
-	if (!stbtt_InitFont(&font, font_file, 0))
-	{
-		lykos_exit();
-	}
-	set_node_target(fontviewer);
-	draw_background(fontviewer, dark_background);
-	char *text = "test again\nnewline";
-	u8 *bitmap = make_bitmap();
-	g8bpp_to_32bpp(fontviewer->texture, bitmap, fontviewer->rec.w, fontviewer->rec.h);
+	//node *fontviewer = window("stb_truetype", 300, 100, 512, 512, defwinflags);
+	//fontviewer->flags &= ~W_visible;
+	//stbtt_fontinfo font;
+	//u8 *fontbitmap = mmap2(fontviewer->rec.w * fontviewer->rec.h);
+	//int bitmapw = fontviewer->rec.w;
+	//if (!stbtt_InitFont(&font, font_file, 0))
+	//{
+	//	lykos_exit();
+	//}
+	//set_node_target(fontviewer);
+	//draw_background(fontviewer, dark_background);
+	//char *text = "test again\nnewline";
+	//u8 *bitmap = make_bitmap();
+	//g8bpp_to_32bpp(fontviewer->texture, bitmap, fontviewer->rec.w, fontviewer->rec.h);
 	//text_draw_string(text, 0, 0, &font);
 	//fix
 //	int line_height = 18;
@@ -783,7 +783,7 @@ void main(int argc, char **argv) {
 	exec("bar.elf");
 	exec("launcher.elf");
 	for (;;) {
-		while (mbox_receive(mboxid, &out)) {
+		while (mbox_receive(mboxid, &out, 0)) {
 			//if (valid_msg)
 			node *client;
 			msg = *(wm_msg *)out.data;

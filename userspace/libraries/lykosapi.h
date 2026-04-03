@@ -2,7 +2,7 @@
 #include "../../src/req.h"
 #include <stdbool.h>
 
-typedef struct{
+typedef struct {
   u64 event_id;
   u16 key;
   u8 modifiers;
@@ -29,6 +29,8 @@ typedef struct {
 #define SYS_SHM_CREATE 10
 #define SYS_SHM_MAP 11
 #define SYS_MAP_KEYS 12
+
+#define MBOX_BLOCK true
 
 // a = rax, D = rdi, S = rsi, d = rdx
 // syscall with 0 args
@@ -92,7 +94,9 @@ static inline i64 mbox_create(i64 id) { return syscall1(SYS_MAILBOX_CREATE, id);
 
 static inline i64 mbox_send(u64 id, void *data, u64 data_len) { return syscall3(SYS_MAILBOX_SEND, id, (u64)data, data_len); }
 
-static inline i64 mbox_receive(u64 id, MailboxMessage *out) { return syscall2(SYS_MAILBOX_RECEIVE, id, (u64) out); }
+static inline i64 mbox_receive(u64 id, MailboxMessage *out, bool blocking) {
+  return syscall3(SYS_MAILBOX_RECEIVE, id, (u64)out, blocking);
+}
 
 static inline i32 shm_create(u64 size, bool public) { return syscall2(SYS_SHM_CREATE, size, public); }
 
