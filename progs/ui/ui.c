@@ -1,12 +1,22 @@
 #include <math.h>
 #include "../../src/vendor/font.h"
 #include <ctype.h>
-#include "mn.h"
+//#include "mn.h"
+//
+//
+#define size ssize
+
 
 
 #include "keys.h"
+#include "basic.h"
 #include "mwm/protocol.h"
 #include "../../userspace/libraries/lykosapi.h"
+
+void _assert(bool b) {
+	if (!b) lykos_exit();
+}
+	
 
 u8 img_buffer[] = {
 #embed "snow.jpg"
@@ -18,52 +28,6 @@ u8 scaled_image[] = {
 u8 font_file[] = {
 #embed "mono.ttf"
 };
-
-
-size_t strlen(const char *s) {
-	int i = 0;
-	while (*s++) i++;
-	return i;
-}
-
-//bool streq(char *s1, char *s2) {
-//	if (!s1 || !s2) return false;
-//	while (*s1++ == *s2++)  {
-//		if (!*s1 && !*s2) return true;
-//	}
-//	return false;
-//}
-
-//void *memcpy(void *restrict dest, const void *restrict src, size_t n) {
-//	u8 *restrict pdest = (u8 *restrict)dest;
-//	const u8 *restrict psrc = (const u8 *restrict)src;
-//
-//	for (size_t i = 0; i < n; i++) {
-//		pdest[i] = psrc[i];
-//	}
-//
-//	return dest;
-//}
-//void memcpy2(char *src, char *buf, size_t sz) {
-//	int i;
-//	for (i = 0; i < sz; i++) {
-//		src[i] = buf[i];
-//	}
-//	return;
-//}
-void *memset(void *s, int c, size_t n) {
-	u8 *p = (u8 *)s;
-
-	for (size_t i = 0; i < n; i++) {
-		p[i] = (u8)c;
-	}
-
-	return s;
-}
-
-void _assert(bool b) {
-	if (!b) lykos_exit();
-}
 
 #include "kalloc.h"
 #include "kalloc.c"
@@ -149,36 +113,34 @@ struct node {
 
 node nodes[20];
 int node_c = 0;
-node *windows[20];
+stack(node *, 20) windows;
 //debug
 node *clientwins[20];
 int clientc = 0;
-int win_c = 0;
 int win_id_inc = 0;
 int focused_window = -1;
 
-//fixme: make these two stacks instead
 void remove_window(node *win) {
 	int i, j;
-	for (i = 0; i < win_c; i++) {
-		node *n = windows[i]; 
+	for (i = 0; i < node_c; i++) {
+		node *n = &nodes[i];
 		if (n == win) {
-			j = i + 1;
-			//@Drawstack
-			if (j == win_c) {
-				windows[i] = null;
-				focused_window--;
-			} else {
-				for (j = i + 1; j < win_c; j++) {
-					windows[j - 1] = windows[j];
-				}
+			for (; i < node_c - 1; i++) {
+				nodes[i] = nodes[i + 1];
 			}
-			win_c--;
-			return;
-
+			node_c--;
 		}
-
 	}
+	for (i = 0; i < windows.sp; i++) {
+		node *n = stack_index(windows, i);
+		if (n == win) {
+			for (; i < windows.sp - 1; i++) {
+				windows.stack[i] = windows.stack[i + 1];
+			}
+			windows.sp--;
+		}
+	}
+	focused_window = -1;
 	return;
 }
 
@@ -261,7 +223,7 @@ void draw_string(char *str, size_t px, size_t py, color c) {
 
 void draw_border(node *n) {
 	color deccolour;
-	if (n == windows[focused_window]) {
+	if (n == windows.stack[focused_window]) {
 		deccolour = (color){132, 133, 119};
 	} else {
 		deccolour = (color){34, 34, 34};
@@ -271,7 +233,7 @@ void draw_border(node *n) {
 
 void draw_decoration(node *n) { 
 	color deccolour;
-	if (n == windows[focused_window]) {
+	if (n == windows.stack[focused_window]) {
 		deccolour = (color){132, 133, 119};
 	} else {
 		deccolour = (color){34, 34, 34};
@@ -342,14 +304,14 @@ node *window(char *title, int x, int y, int w, int h, unsigned int flags) {
 	np->rec = (rectangle){x, y, w, h};
 	np->flags = flags | N_title;
 	np->parent = np;
-	windows[win_c++] = np;
+	push(windows, np);
 	return np;
 }
 
 void set_focus(node *n) {
 	int i;
-	for (i = 0; i < win_c; i++) {
-		if (n == windows[i]) {
+	for (i = 0; i < windows.sp; i++) {
+		if (n == windows.stack[i]) {
 			focused_window = i;
 		}
 	}
@@ -357,8 +319,8 @@ void set_focus(node *n) {
 
 node *get_window_by_id(int id) {
 	int i;
-	for (i = 0; i < win_c; i++) {
-		node *win = windows[i];
+	for (i = 0; i < windows.sp; i++) {
+		node *win = windows.stack[i];
 		if (win->window_id == id) {
 			return win;
 		}
@@ -830,13 +792,13 @@ void main(int argc, char **argv) {
 
 			if (ev.key == '\t') {
 				if (focused_window == -1) focused_window = 0;
-				send_msg(windows[focused_window], WM_unfocus);
+				send_msg(windows.stack[focused_window], WM_unfocus);
 				int i;
 				bool found = false;
-				for (i = 0; i < win_c; i++) {
+				for (i = 0; i < windows.sp; i++) {
 					focused_window++;
-					if (focused_window > win_c - 1) focused_window = 0;
-					node *win = windows[focused_window];
+					if (focused_window > windows.sp - 1) focused_window = 0;
+					node *win = windows.stack[focused_window];
 					if (!(win->flags & W_focusable) || !(win->flags & W_visible)) {
 						continue;
 					} else {
@@ -845,17 +807,13 @@ void main(int argc, char **argv) {
 					}
 				}
 				if (!found) focused_window = -1;
-				else send_msg(windows[focused_window], WM_focus);
+				else send_msg(windows.stack[focused_window], WM_focus);
 			} else if (ev.key == KEY_ESCAPE) {
 				lykos_exit();
 			} else if (alt && ev.key == 'q') {
-				if (windows[focused_window]) {
-					node *win = windows[focused_window];
-					if (win->flags & W_visible) {
-						win->flags &= ~W_visible;
-					} else {
-						win->flags |= W_visible;
-					}
+				if (focused_window >= 0) {
+					node *win = windows.stack[focused_window];
+					win->flags &= ~W_visible;
 					remove_window(win);
 					send_msg(win, WM_close);
 				}
@@ -871,36 +829,15 @@ void main(int argc, char **argv) {
 				diff.x += 10;
 			} else {
 				if (focused_window >= 0) {
-					node *win = windows[focused_window];
+					node *win = windows.stack[focused_window];
 					send_key(win, ev);
 				} 
-				//if (evbufi < sizeof evbuf) {
-				//	//evbuf[evbufi++] = ev.key;
-				//	set_node_target(launcher);
-				//	draw_background(launcher, WHITE);
-				//	static int i;
-				//	static char cbuf[256];
-				//	cbuf[i++] = ev.key;
-				//	int j;
-				//	int x = 0;
-				//	for (j = 0; j < strlen(cbuf); j++) {
-				//		if (cbuf[j] == '\n') {
-				//			cbuf[strlen(cbuf) - 1] = '\0';
-				//			exec(cbuf);
-				//			i = 0;
-				//			memset(cbuf, 0, sizeof cbuf);
-				//			break;
-				//		}
-				//		draw_char_scaled(cbuf[j], x += 8, 5, BLACK, 1);
-				//	}
-				//	set_pix_target(buf);
-				//}
 			}
 		}
 
 		if (!should_redraw_screen) { 
-			sleep(1); 
-			continue;
+		    sleep(1);
+		    continue;
 		}
 
 
@@ -982,10 +919,10 @@ void main(int argc, char **argv) {
 		}
 
 		if (focused_window >= 0) {
-			node *focuswin = windows[focused_window];
+			node *focuswin = windows.stack[focused_window];
 			if (focuswin->flags & W_movable) {
-				windows[focused_window]->rec.x += diff.x;
-				windows[focused_window]->rec.y += diff.y;
+				windows.stack[focused_window]->rec.x += diff.x;
+				windows.stack[focused_window]->rec.y += diff.y;
 			}
 		}
 		//imgviewer->rec.x += 1;
@@ -1011,8 +948,8 @@ void main(int argc, char **argv) {
 //			}
 //		}
 		//fixme drawstack
-		for (i = 0; i < win_c; i++) {
-			node *np = windows[i];
+		for (i = 0; i < windows.sp; i++) {
+			node *np = windows.stack[i];
 			if (!(np->flags & W_visible))
 				continue;
 
@@ -1024,7 +961,7 @@ void main(int argc, char **argv) {
 		}
 
 		if (focused_window >= 0) {
-			node *np = windows[focused_window];
+			node *np = windows.stack[focused_window];
 			if (np->flags & W_visible) {
 				draw_texture(np);
 				if (np->flags & W_draw_decoration)

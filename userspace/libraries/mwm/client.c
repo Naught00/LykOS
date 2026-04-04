@@ -84,9 +84,7 @@ window *open_window(char *title, int x, int y, int w, int h, unsigned int flags)
 	memset(&msg, 0, sizeof msg);
 	//FIXME sleep on rec
 	while (1) {
-		while (!mbox_receive(mboxid, &out, false)) {
-			sleep(10);
-		}
+		mbox_receive(mboxid, &out, MBOX_BLOCK);
 
 		msg = *(wm_msg *) out.data;
 		if (msg.type == WM_ok) {
