@@ -39,27 +39,75 @@ void blit_surface(rectangle *dest, u8 *input, rectangle *src, bool black) {
 	return;
 }
 
-stbtt_bakedchar cdata[96]; // ASCII 32..126 is 95 glyphs
+typedef struct Font {
+	stbtt_bakedchar cdata[96]; // ASCII 32..126 is 95 glyphs
+	u8 *bitmap;
+	int font_size;
+	int bitmap_size;
+	bool init;
+} Font;
 
-u8 *load_font_mem(u8 *font) {
-	u8 *bitmap = mmap2(BITMAP_SIZE*BITMAP_SIZE);
+//@Todo request system font from wm
+u8 _regular_font_file[] = {
+#embed "../fonts/regular.ttf"
+};
+u8 _mono_font_file[] = {
+#embed "../fonts/mono.ttf"
+};
+Font _regular;
+Font _mono;
+
+Font *_selected_font = &_regular;
+
+enum font_type {
+	MONO,
+	REGULAR,
+	ITALIC,
+	BOLD,
+};
+
+
+u8 *load_font_mem(stbtt_bakedchar *cdata, u8 *font) {
+	u8 *bitmap = mmap2(BITMAP_SIZE * BITMAP_SIZE);
 	stbtt_BakeFontBitmap(font, 0, FONT_SIZE, bitmap, BITMAP_SIZE, BITMAP_SIZE, 32, 96, cdata);
 	return bitmap;
 }
 
+void _init_font(Font *f, u8 *font_file) {
+	if (f->init) return;
 
-void draw_text_pro(u8 *bitmap, char *text, bool black, float *x, float *y) {
+	f->bitmap = load_font_mem(f->cdata, font_file);
+	f->bitmap_size = BITMAP_SIZE;
+	f->font_size   = FONT_SIZE;
+	f->init = true;
+	return;
+}
+
+void set_font(enum font_type type) {
+	switch (type) {
+	case MONO:
+		_selected_font = &_mono;
+		_init_font(&_mono, _mono_font_file);
+		break;
+	case REGULAR:
+		_selected_font = &_regular;
+		_init_font(&_regular, _regular_font_file);
+		break;
+	}
+}
+
+void draw_text_ex(Font *font, char *text, bool black, float *x, float *y) {
 	while (*text) {
 		if (*text == '\n') {
-			*y += FONT_SIZE;
+			*y += font->font_size;
 			*x = 0;
 		}
 		if (*text == '\t') {
-			*x += 4 * FONT_SIZE;
+			*x += 4 * font->font_size;
 		}
 		if (*text >= 32 && *text < 128) {
 			stbtt_aligned_quad q;
-			stbtt_GetBakedQuad(cdata, BITMAP_SIZE,BITMAP_SIZE, *text-32, x,y,&q,1);//1=opengl & d3d10+,0=d3d9
+			stbtt_GetBakedQuad(font->cdata, font->bitmap_size, font->bitmap_size, *text-32, x,y,&q,1);//1=opengl & d3d10+,0=d3d9
 			int w = q.x1-q.x0;
 			int h = q.y1-q.y0;
 
@@ -67,14 +115,14 @@ void draw_text_pro(u8 *bitmap, char *text, bool black, float *x, float *y) {
 			   0.0-1.0. We have to scale them back to the pixel space used in the
 			   glyph data bitmap. We multiply by the glyph bitmap
 			   dimensions */
-			rectangle src  = {.x = q.s0*BITMAP_SIZE, .y = q.t0*BITMAP_SIZE, .w = w, .h = h };
+			rectangle src  = {.x = q.s0*font->bitmap_size, .y = q.t0*font->bitmap_size, .w = w, .h = h };
 
 			/* In gl/d3d the y value is inverted compared to what we expect. y0
 			   is negative here. We add it to the baseline to get the
 			   correct  position to blit to. */
-			rectangle dest = {.x = q.x0, .y = FONT_SIZE+q.y0, .w = w, .h = h };
+			rectangle dest = {.x = q.x0, .y = font->font_size+q.y0, .w = w, .h = h };
 
-			blit_surface(&dest, bitmap, &src, black);
+			blit_surface(&dest, font->bitmap, &src, black);
 		}
 
 		++text;
@@ -82,8 +130,14 @@ void draw_text_pro(u8 *bitmap, char *text, bool black, float *x, float *y) {
 	return; 
 }
 
-void draw_text(u8 *bitmap, char *text, bool black, float x, float y) {
-	draw_text_pro(bitmap, text, black, &x, &y);
+void draw_text_pro(char *text, bool black, float *x, float *y) {
+	if (_selected_font == &_regular) _init_font(&_regular, _regular_font_file);
+	draw_text_ex(_selected_font, text, black, x, y);
+}
+
+void draw_text(char *text, bool black, float x, float y) {
+	if (_selected_font == &_regular) _init_font(&_regular, _regular_font_file);
+	draw_text_ex(_selected_font, text, black, &x, &y);
 }
 
 
@@ -100,9 +154,6 @@ void _term_move_head(char *buf, ssize len, int *head) {
 	}
 }
 
-u8 baked_term_font[] = {
-#embed "../fonts/mono.ttf"
-};
 
 void printf(char *fmt, ...) {
 	static char TERMBUFFER[4096];
@@ -113,10 +164,13 @@ void printf(char *fmt, ...) {
 	static window *win;
 	static bool terminal_init;
 	if (!terminal_init) {
-		TERM_BITMAP = load_font_mem(baked_term_font);
+		//TERM_BITMAP = load_font_mem(baked_term_font);
 		win = open_window("Terminal", 100, 100, 400, 600, -1);
 		terminal_init = true;
 	}
+	Font *last_font = _selected_font;
+	set_font(MONO);
+
 	set_render_target(win);
         draw_background(WHITE);
 
@@ -147,12 +201,14 @@ void printf(char *fmt, ...) {
 		i++;
 		line[j++] = c;
 		if (c == '\n') {
-			draw_text_pro(TERM_BITMAP, line, true, &x, &y);
+			draw_text_pro(line, true, &x, &y);
 			j = 0;
 			memset(line, 0, sizeof line);
 		}
 	}
 	commit_win(win);
+	_selected_font = last_font;
+	return;
 }
 
 #endif

@@ -85,7 +85,7 @@ int draw_width = width;
 int draw_height = width;
 
 typedef struct color {
-	uint8_t r, g, b;
+	uint8_t r, g, b, a;
 } color;
 color WHITE = {255, 255, 255};
 color BLACK = {0, 0, 0};
@@ -663,14 +663,14 @@ void main(int argc, char **argv) {
 //	set_pix_target(buf);
 
 
-	u8 *scaled = stbi_load_from_memory(scaled_image, sizeof scaled_image, &iw, &ih, &ic, 4);
-	bgr_to_rgb(scaled, iw, ih);
-	node *imgviewer = window("Image Viewer", 200, 300, iw, ih, defwinflags);
-	imgviewer->flags &= ~W_visible;
-	set_pix_target(imgviewer->texture);
-	draw_width = iw;
-	draw_texture_pix((u32 *)scaled, 0, 0, iw, ih);
-	draw_width = width;
+	//u8 *scaled = stbi_load_from_memory(scaled_image, sizeof scaled_image, &iw, &ih, &ic, 4);
+	//bgr_to_rgb(scaled, iw, ih);
+	//node *imgviewer = window("Image Viewer", 200, 300, iw, ih, defwinflags);
+	//imgviewer->flags &= ~W_visible;
+	//set_pix_target(imgviewer->texture);
+	//draw_width = iw;
+	//draw_texture_pix((u32 *)scaled, 0, 0, iw, ih);
+	//draw_width = width;
 
 
 
@@ -981,8 +981,8 @@ void main(int argc, char **argv) {
 				windows[focused_window]->rec.y += diff.y;
 			}
 		}
-		imgviewer->rec.x += 1;
-		imgviewer->rec.y += 1;
+		//imgviewer->rec.x += 1;
+		//imgviewer->rec.y += 1;
 		//set_focus(fontviewer);
 
 		//clientwins[0]->rec.x += 5;
@@ -994,15 +994,15 @@ void main(int argc, char **argv) {
 		//	draw_string(windows[focused_window]->title, 30 * 8 , 5, BLACK);
 		//set_pix_target(buf);
 
-		for (i = 0; i < node_c; i++) {
-			node *np = &nodes[i];
-			bool has_focus = np->parent == windows[focused_window];
-			if (has_focus && np->flags & N_text && evbufi) {
-				for (int x = 0; x < evbufi; x++) {
-					np->buffer[np->buff_i++] = evbuf[x];
-				}
-			}
-		}
+//		for (i = 0; i < node_c; i++) {
+//			node *np = &nodes[i];
+//			bool has_focus = np->parent == windows[focused_window];
+//			if (has_focus && np->flags & N_text && evbufi) {
+//				for (int x = 0; x < evbufi; x++) {
+//					np->buffer[np->buff_i++] = evbuf[x];
+//				}
+//			}
+//		}
 		//fixme drawstack
 		for (i = 0; i < win_c; i++) {
 			node *np = windows[i];
@@ -1027,7 +1027,7 @@ void main(int argc, char **argv) {
 			}
 		}
 
-		memcpy((void *) fb, (void *) buf, sizeof buf);
+		memcpy(fb, buf, sizeof buf);
 	}
 	return;
 }

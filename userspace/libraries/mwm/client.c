@@ -7,7 +7,6 @@
 #include "protocol.h"
 #include "basic.h"
 
-
 enum local_flags {
 	WC_should_close = 0x1,
 	WC_has_focus    = 0x2,
@@ -85,7 +84,7 @@ window *open_window(char *title, int x, int y, int w, int h, unsigned int flags)
 	memset(&msg, 0, sizeof msg);
 	//FIXME sleep on rec
 	while (1) {
-		while (!mbox_receive(mboxid, &out, 0)) {
+		while (!mbox_receive(mboxid, &out, false)) {
 			sleep(10);
 		}
 

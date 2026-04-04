@@ -12,14 +12,15 @@ int main(void) {
 	draw_background(WHITE);
 	commit_win(win);
 
-	u8 *font = load_font_mem(font_file);
+	printf("[bar] clearing background...\n");
 
 	while (!should_close(win)) {
 		check_messages();
 		set_render_target(win);
 		draw_background(WHITE);
-		draw_text(font, "Applications File Edit View", true, 5, 0);
+		draw_text("Applications File Edit View", true, 5, 0);
 		commit_win(win);
+		printf("[bar] sleeping for 1000ms...\n");
 		sleep(1000);
 	}
 	return 0;

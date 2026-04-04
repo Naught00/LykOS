@@ -12,7 +12,7 @@ int main(void) {
 	draw_background(WHITE);
 	commit_win(win);
 
-	u8 *font = load_font_mem(font_file);
+	//u8 *font = load_font_mem(font_file);
 
 	char key;
 	KeyEvent key_event;
@@ -34,9 +34,7 @@ int main(void) {
 			key = key_event.key;
 			if (key >= ' ' && key <= '~') {
 				push(program_name, key);
-			}
-
-			if (key == '\n') {
+			} else if (key == '\n') {
 				int ret = exec(program_name.stack);
 				if (ret < 0) {
 					strcpy(program_name.stack, "Could not find program");
@@ -46,10 +44,9 @@ int main(void) {
 					return 0;
 				}
 			}
+			draw_text(program_name.stack, true, 5, 5);
+			commit_win(win);
 		}
-		draw_text(font, program_name.stack, true, 5, 5);
-
-		commit_win(win);
 		sleep(16);
 	}
 }

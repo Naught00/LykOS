@@ -24,7 +24,7 @@ int main() {
 	window *win;
 	win = open_window("test", -1, -1, 640, 480, -1);
 	if (!win) lykos_exit();
-	u8 *bitmap = load_font_mem(font_file);
+	//u8 *bitmap = load_font_mem(font_file);
 
 	int i, j;
 	int len = strlen(source_file);
@@ -36,6 +36,7 @@ int main() {
 	}
 	int head = 0;
 	char line[256] = {0};
+	set_font(MONO);
 	while (!should_close(win)) {
 		check_messages();
 		set_render_target(win);
@@ -63,7 +64,7 @@ int main() {
 				line_index++;
 				if (line_index <= head) continue;
 
-				draw_text_pro(bitmap, line, false, &x, &y);
+				draw_text_pro(line, false, &x, &y);
 				j = 0;
 				memset(line, 0, sizeof line);
 				continue;
