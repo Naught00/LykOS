@@ -78,7 +78,6 @@ u8 *load_font_mem(stbtt_bakedchar *cdata, u8 *font) {
 
 void _init_font(Font *f, u8 *font_file) {
 	if (f->init) return;
-	write("initing  font\n");
 
 	f->bitmap = load_font_mem(f->cdata, font_file);
 	f->bitmap_size = BITMAP_SIZE;
@@ -171,10 +170,11 @@ int printf(const char *restrict fmt, ...) {
 		win = open_window("Terminal", 100, 100, 400, 600, -1);
 		terminal_init = true;
 	}
+
 	Font *last_font = _selected_font;
 	set_font(MONO);
 	set_render_target(win);
-        draw_background(WHITE);
+    draw_background(WHITE);
 
 	int max_lines = draw_height / FONT_SIZE;
 	static int lines; 
