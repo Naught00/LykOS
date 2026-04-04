@@ -60,9 +60,11 @@ i64 mbox_send(u64 mailbox_id, char *data, u64 data_len) {
   mbox->queue[mbox->tail] = *msg;
   mbox->tail = (mbox->tail + 1) % MAILBOX_CAPACITY;
   mbox->count++;
-  if (mbox->sleeping_pid) {
-    tasks[mbox->sleeping_pid].state = TASK_READY;
-    serial_fstring("Waking up task {uint}\n", mbox->sleeping_pid);
+  if (mbox->is_blocked) {
+    tasks[mbox->owner_pid].state = TASK_READY;
+    serial_fstring("Waking up task {uint}\n", mbox->owner_pid);
+    mbox->is_blocked = false;
+    yield();
   }
   serial_fstring("[MBOX] Count {uint}\n", mbox->count);
 
@@ -91,7 +93,7 @@ i64 mbox_receive(u64 mailbox_id, MailboxMessage *out, bool blocking) {
     if (blocking) {
       serial_fstring("proc {str} blocking on mailbox {uint}\n",
                      tasks[current_task].name, mailbox_id);
-      mbox->sleeping_pid = current_task;
+      mbox->is_blocked = true;
       tasks[current_task].state = TASK_BLOCKED;
       yield();
     } else {

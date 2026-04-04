@@ -17,7 +17,7 @@ typedef struct {
 
   u64 id;
   i64 owner_pid;
-  i64 sleeping_pid;
+  bool is_blocked;
 
   u64 head;
   u64 tail;
