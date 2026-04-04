@@ -1,6 +1,7 @@
 #include "mailbox.h"
 #include "drivers/serial.h"
 #include "proc/task.h"
+#include "terminal.h"
 
 Mailbox mailboxes[MAX_MAILBOXES];
 
@@ -24,6 +25,8 @@ i64 mbox_create(i64 requested_id) {
   *mbox = (Mailbox){
       .is_active = true,
       .id = requested_id,
+      .is_blocked = false,
+      .head = 0,
       .owner_pid = current_task,
       .tail = 0,
       .count = 0,
@@ -110,3 +113,10 @@ i64 mbox_receive(u64 mailbox_id, MailboxMessage *out, bool blocking) {
 }
 
 i64 mbox_delete(u64 mailbox_id);
+
+void free_mailboxes(i64 owner_pid) {
+  for (int i = 0; i < MAX_MAILBOXES; i++) {
+    if (mailboxes[i].owner_pid == owner_pid)
+      mailboxes[i].is_active = false;
+  }
+}

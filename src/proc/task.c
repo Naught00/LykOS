@@ -6,6 +6,7 @@
 #include "klib/time.h"
 #include "mem/kalloc.h"
 #include "mem/mem.h"
+#include "proc/mailbox.h"
 #include "terminal.h"
 #include "user/elf.h"
 
@@ -163,6 +164,7 @@ __attribute__((noreturn)) void task_exit(void) {
 
   kfree(t->stack);
   kfree((void *)t->name);
+  free_mailboxes(current_task);
   serial_writeln("task_exit: about to yield");
   asm volatile("sti");
   yield();

@@ -33,3 +33,4 @@ i64 mbox_create(i64 mailbox_id);
 i64 mbox_send(u64 mailbox_id, char *data, u64 data_len);
 i64 mbox_receive(u64 mailbox_id, MailboxMessage *out, bool blocking);
 i64 mbox_delete(u64 mailbox_id);
+void free_mailboxes(i64 owner_pid);
