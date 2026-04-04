@@ -1,5 +1,5 @@
-/* Window manager client example. 
-   Opens window and draws a red background 
+/* Window manager client example program.
+   Opens window and prints its source code to the screen.
    The client must sleep between frames to avoid
    taking up too much CPU time from the window manager.
 */
@@ -9,6 +9,7 @@
 #include "mwm/client.c"
 #include "graphics.c"
 #include "text.c"
+#include "stdio.h"
 
 u8 font_file[] = {
 #embed "../../fonts/mono.ttf"
@@ -24,7 +25,6 @@ int main() {
 	window *win;
 	win = open_window("test", -1, -1, 640, 480, -1);
 	if (!win) lykos_exit();
-	//u8 *bitmap = load_font_mem(font_file);
 
 	int i, j;
 	int len = strlen(source_file);
@@ -34,28 +34,31 @@ int main() {
 			linec++;
 		}
 	}
-	int head = 0;
+
+	int  head = 0;
 	char line[256] = {0};
 	set_font(MONO);
+	bool redraw = true;
 	while (!should_close(win)) {
 		check_messages();
-		set_render_target(win);
-		draw_background(BLACK);
 		KeyEvent key_event;
 		while (key_events(win)) {
 			key_event = next_key(win);
-			switch (key_event.key) {
+			char key = key_event.key;
+			switch (key) {
 			case 'j':
 				if (head < linec) head += 1;
 				break;
 			case 'k':
 				if (head >= 0) head -= 1;
 				break;
-			case 'q':
-				write("Q PRESSED!\n");
+			default:
+				printf("%s: Pressed %c\n", __FILE__, key);
 				break;
 			}
 		}
+		set_render_target(win);
+		draw_background(BLACK);
 		float x = 0, y = 0;
 		int line_index = 0;
 		for (i = 0, j = 0; i < len; i++) {
@@ -72,7 +75,7 @@ int main() {
 		}
 
 		commit_win(win);
-		sleep(16);
+		sleep(32);
 	}
 	close_window(win);
 	return 0;

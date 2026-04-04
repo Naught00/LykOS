@@ -1,6 +1,7 @@
 #ifndef STRING_C
 #define STRING_C
 #include "basic.h"
+#include "arena.c"
 #include <stdint.h>
 
 #define size ssize
@@ -52,11 +53,27 @@ void string_cat(string_builder *s0, string s1) {
 	return;
 }
 
+void string_cat_char(string_builder *s0, char s1) {
+	if (s0->len + 1 > s0->capacity) return;
+	memcpy(s0->s + s0->len, &s1, 1);
+	s0->len += 1;
+	return;
+}
+
 string string_builder_finish(arena *a, string_builder b) {
 	string s;
 	s.s = anew(a, char, b.len);
 	s.len = b.len;
 	memcpy(s.s, b.s, b.len);
+	return s;
+}
+
+string string_builder_finish_null(string_builder b) {
+	string s;
+	s.len = b.len;
+	s.s   = b.s;
+	if (s.len >= b.capacity) s.s[s.len -1] = '\0';
+	else s.s[s.len] = '\0';
 	return s;
 }
 

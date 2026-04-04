@@ -783,6 +783,7 @@ void main(int argc, char **argv) {
 	exec("bar.elf");
 	exec("launcher.elf");
 	for (;;) {
+		bool should_redraw_screen = false;
 		while (mbox_receive(mboxid, &out, 0)) {
 			//if (valid_msg)
 			node *client;
@@ -804,13 +805,12 @@ void main(int argc, char **argv) {
 				set_node_target(client);
 				draw_texture_pix(cbuf, 0, 0, client->rec.w, client->rec.h);
 				set_pix_target(buf);
+				should_redraw_screen = true;
 				break;
 			default: break;
 			}
 		}
-		//for (int i = 0; i < width*height; i++) {
-		//	buf[i] = BG;
-		//}
+
 		vector2 diff = {0};
 		KeyEvent ev;
 		char evbuf[64] = {0};
@@ -822,6 +822,7 @@ void main(int argc, char **argv) {
 				ev = kb[next];
 				idx = next;
 				if (ev.modifiers & MOD_RELEASE) continue;
+				should_redraw_screen = true;
 			} else {
 				break;
 			}
@@ -896,6 +897,12 @@ void main(int argc, char **argv) {
 				//}
 			}
 		}
+
+		if (!should_redraw_screen) { 
+			sleep(1); 
+			continue;
+		}
+
 
 		//if (launcher->flags & W_visible) {
 		//	set_node_target(launcher);

@@ -176,7 +176,7 @@ void _check_messages(bool block) {
 			win->local_flags &= ~WC_has_focus;
 			break;
 		case WM_key:
-			push(win->keybuffer, msg.key_event);
+			if (win->keybuffer.sp < 16) push(win->keybuffer, msg.key_event);
 			break;
 		default: break;
 		}

@@ -1,5 +1,7 @@
 #ifndef  TEXT_C
 #define  TEXT_C
+#include <stdio.h>
+#include <stdarg.h>
 #include "mwm/client.c"
 #include "shapes.h"
 #include "basic.h"
@@ -14,6 +16,7 @@
 #include "vendor/stb_truetype.h"
 
 #include "graphics.c"
+#include "string.c"
 
 #define FONT_SIZE 18
 #define BITMAP_SIZE 512
@@ -75,6 +78,7 @@ u8 *load_font_mem(stbtt_bakedchar *cdata, u8 *font) {
 
 void _init_font(Font *f, u8 *font_file) {
 	if (f->init) return;
+	write("initing  font\n");
 
 	f->bitmap = load_font_mem(f->cdata, font_file);
 	f->bitmap_size = BITMAP_SIZE;
@@ -97,10 +101,11 @@ void set_font(enum font_type type) {
 }
 
 void draw_text_ex(Font *font, char *text, bool black, float *x, float *y) {
+	float initial_x = *x;
 	while (*text) {
 		if (*text == '\n') {
 			*y += font->font_size;
-			*x = 0;
+			*x = initial_x;
 		}
 		if (*text == '\t') {
 			*x += 4 * font->font_size;
@@ -155,60 +160,82 @@ void _term_move_head(char *buf, ssize len, int *head) {
 }
 
 
-void printf(char *fmt, ...) {
+int printf(const char *restrict fmt, ...) {
 	static char TERMBUFFER[4096];
 	static int TERM_HEAD;
 	static int term_count;
-	static u8 *TERM_BITMAP; 
 	static s64 TERM_INDEX;
 	static window *win;
 	static bool terminal_init;
 	if (!terminal_init) {
-		//TERM_BITMAP = load_font_mem(baked_term_font);
 		win = open_window("Terminal", 100, 100, 400, 600, -1);
 		terminal_init = true;
 	}
 	Font *last_font = _selected_font;
 	set_font(MONO);
-
 	set_render_target(win);
         draw_background(WHITE);
 
 	int max_lines = draw_height / FONT_SIZE;
 	static int lines; 
 
-	int j;
-	char line[256] = {0};
+	int i, j;
 	int len = strlen(fmt);
-	for (j = 0; j < len; j++) {
-		TERMBUFFER[TERM_INDEX % sizeof TERMBUFFER] = fmt[j];
+	char _formatted[256] = {0};
+	string_builder formatted = {0, sizeof _formatted, _formatted};
+	va_list ap;
+	va_start(ap, fmt);
+	for (i = 0, j = 0; j < len; j++) {
+		char *s;
+		if (fmt[j] == '%') {
+			switch (fmt[j + 1]) {
+			case 's':
+				s = va_arg(ap, char *);
+				string x = string_from_cstring(s);
+				string_cat(&formatted, x);
+				break;
+			case 'c':
+				string_cat_char(&formatted, va_arg(ap, int));
+				break;
+			default:
+				break;
+			}
+			j++;
+		} else {
+			string_cat_char(&formatted, fmt[j]);
+		}
+	}
+	va_end(ap);
+	string finished = string_builder_finish_null(formatted);
+	for (j = 0; j < finished.len; j++) {
+		TERMBUFFER[TERM_INDEX % sizeof TERMBUFFER] = finished.s[j];
 		TERM_INDEX++;
 		if (term_count < sizeof TERMBUFFER) {
 			term_count++;
 		} 
-		if (fmt[j] == '\n') {
+		if (finished.s[j] == '\n') {
 			if (lines >= max_lines) _term_move_head(TERMBUFFER, term_count, &TERM_HEAD);
 			else lines++;
 		}
 	}
 
-	float x = 0, y = 0;
+	float x = 2, y = 0;
 	int count = 0;
-	int i;
+	//fixme, just print from head?
+	
+//	draw_text_pro(TERMBUFFER + TERM_HEAD, true, &x, &y);
+
+	char line[4096] = {0};
 	for (i = TERM_HEAD, j = 0; count < term_count; count++) {
 		char c = _termbuffer_index(i);
-		if (!c) break;
 		i++;
 		line[j++] = c;
-		if (c == '\n') {
-			draw_text_pro(line, true, &x, &y);
-			j = 0;
-			memset(line, 0, sizeof line);
-		}
 	}
+	draw_text_pro(line, true, &x, &y);
 	commit_win(win);
 	_selected_font = last_font;
-	return;
+	pop_render_target();
+	return 0;
 }
 
 #endif

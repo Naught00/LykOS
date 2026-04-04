@@ -134,11 +134,21 @@ vector3f rotate_xz(vector3f p, float angle) {
 }
 
 
+window *render_target;
+window *last_render_target;
 //depends on windowing system
 void set_render_target(window *win) {
+	last_render_target = render_target;
+	render_target = win;
 	draw_width = win->rec.w;
 	draw_height = win->rec.h;
 	pixels     = win->surface;
 	return;
+}
+
+void pop_render_target() {
+	if (last_render_target) {
+		set_render_target(last_render_target);
+	}
 }
 #endif
