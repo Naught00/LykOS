@@ -5,6 +5,7 @@
 #include "fs/vfs.h"
 #include "graphics/draw.h"
 #include "klib/kstring.h"
+#include "klib/time.h"
 #include "mem/kalloc.h"
 #include "mem/mem.h"
 #include "proc/task.h"
@@ -239,6 +240,8 @@ void shell_execute(kstring *line) {
   else if (kstrncmp(line, "tasks", 5))
     debug_tasks();
 
+  else if (kstrncmp(line, "ms", 2))
+    terminal_fstring("{uint}\n", ticks_to_ms(pit_get_ticks()));
   else {
     terminal_fstring("Unknown command\n");
     goto skip_history;

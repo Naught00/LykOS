@@ -27,6 +27,7 @@ typedef struct {
 #define SYS_SHM_CREATE 10
 #define SYS_SHM_MAP 11
 #define SYS_MAP_KEYS 12
+#define SYS_TIME_MS 13
 
 // a = rax, D = rdi, S = rsi, d = rdx
 // syscall with 0 args
@@ -104,4 +105,7 @@ static inline u64 shm_map(i32 region_id, u64 *out_size) {
 }
 static inline u64 mmap_keyboard(u64 *out_size) {
   return syscall1(SYS_MAP_KEYS, (u64)out_size);
+}
+static inline u64 uptime_ms(void) {
+  return syscall0(SYS_TIME_MS);
 }

@@ -228,5 +228,8 @@ void isr_syscall(interrupt_frame *frame) {
   case 12:
     frame->rax = map_key_events(frame);
     break;
+  case 13:
+    frame->rax = sys_get_ms(frame);
+    break;
   }
 }
