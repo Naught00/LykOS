@@ -75,7 +75,7 @@ int main() {
 		}
 
 		commit_win(win);
-		sleep(32);
+		sleep(16);
 	}
 	close_window(win);
 	return 0;

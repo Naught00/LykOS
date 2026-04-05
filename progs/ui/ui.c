@@ -4,14 +4,13 @@
 //#include "mn.h"
 //
 //
-#define size ssize
-
 
 
 #include "keys.h"
 #include "basic.h"
 #include "mwm/protocol.h"
 #include "../../userspace/libraries/lykosapi.h"
+#define size ssize
 
 void _assert(bool b) {
 	if (!b) lykos_exit();
@@ -96,12 +95,12 @@ struct node {
 		};
 		//Window
 		struct {
-			char *title;
+			char title[MAX_TITLE];
 			int window_id;
 			uint32_t texture[1920 * 1080];
 			int client_mbox;
 			uint32_t *shared_buf;
-		}
+		};
 
 	};
 	//??
@@ -120,26 +119,29 @@ int clientc = 0;
 int win_id_inc = 0;
 int focused_window = -1;
 
-void remove_window(node *win) {
-	int i, j;
-	for (i = 0; i < node_c; i++) {
-		node *n = &nodes[i];
-		if (n == win) {
-			for (; i < node_c - 1; i++) {
-				nodes[i] = nodes[i + 1];
-			}
-			node_c--;
-		}
-	}
+void remove_window(int win_id) {
+	int i;
 	for (i = 0; i < windows.sp; i++) {
 		node *n = stack_index(windows, i);
-		if (n == win) {
+		if (n->window_id == win_id) {
 			for (; i < windows.sp - 1; i++) {
 				windows.stack[i] = windows.stack[i + 1];
 			}
+			windows.stack[i] = null;
 			windows.sp--;
+			break;
 		}
 	}
+	//for (i = 0; i < node_c; i++) {
+	//	if (nodes[i].window_id == win_id) {
+	//		for (; i < node_c - 1; i++) {
+	//			nodes[i] = nodes[i + 1];
+	//		}
+	//		nodes[i] = (node){0};
+	//		node_c--;
+	//		break;
+	//	}
+	//}
 	focused_window = -1;
 	return;
 }
@@ -299,7 +301,7 @@ node *window(char *title, int x, int y, int w, int h, unsigned int flags) {
 	np = &nodes[node_c++];
 	np->id = node_c - 1;
 	np->client_mbox = -1;
-	np->title = title;
+	strncpy(np->title, title, MAX_TITLE);
 	np->window_id = win_id_inc++;
 	np->rec = (rectangle){x, y, w, h};
 	np->flags = flags | N_title;
@@ -340,33 +342,53 @@ node *text_input(int id, node *parent, char *base, rectangle rec, unsigned int f
 	}
 	return np;
 }
+
+#include <emmintrin.h>
+void fast_draw_texture_pix(u32 *texture, int ox, int oy, int w, int h) {
+	int x, y;
+	int row_len = (w * BPP) / 16;
+	int out_len = (draw_width * BPP) / 16;
+	__m128i *a = (__m128i *) texture;
+
+	u32 *adjusted = pixels + ox + (oy * draw_width);
+	__m128i *cursor = (__m128i *) adjusted;
+	__m128i z;
+	for (y = 0; y < h; y++) {
+		for (x = 0; x < row_len; x++) {
+			z = _mm_loadu_si128(a);
+			a++;
+			_mm_storeu_si128(cursor + x, z);
+		}
+		cursor += out_len;
+	}
+	return;
+}
+
+void memcpy_draw_texture_pix(u32 *texture, int ox, int oy, int w, int h) {
+	int x, y, i;
+	bool out_bounds;
+	int offset = 0;
+	int row_len;
+
+	row_len = w * BPP;
+	i = 0;
+	if (ox + w >= draw_width) offset = ((ox + w) - draw_width) * BPP;
+	for (y = oy; y < oy + h; y++) {
+		if (y >= draw_height) break;
+		if (y >= 0) memcpy(pixels + ox + (y * draw_width), texture + i, row_len - offset);
+		i += w;
+	}
+	return;
+}
+
+
 void draw_texture_pix(u32 *texture, int ox, int oy, int w, int h) {
 	bool same_size = w == draw_width && h == draw_height;
 	if (same_size) {
-		memcpy(pixels, texture, draw_width * draw_height * sizeof(u32));
-		return;
-	}
-	int x, y, x1, y1;
-	x1 = 0;
-	y1 = 0;
-	x = ox;
-	y = oy;
-	int i;
-	bool out_bounds;
-	for (i = 0; y1 < h; i++) {
-		//fixme draw_width/height
-		out_bounds = x < 0 || y < 0 || x >= width || y >= height;
-		if (!out_bounds) 
-			pixels[x + (y * draw_width)] = texture[x1 + (y1 * w)];
-		if (x1 == w - 1) {
-			y++;
-			y1++;
-			x = ox;
-			x1 = 0;
-		} else {
-			x++;
-			x1++;
-		}
+		memcpy(pixels, texture, draw_width * draw_height * BPP);
+	} else {
+		//fast_draw_texture_pix(texture, ox, oy, w, h);
+		memcpy_draw_texture_pix(texture, ox, oy, w, h);
 	}
 }
 
@@ -408,7 +430,7 @@ void set_node_target(node *n) {
 void set_pix_target(uint32_t *p) {
 	pixels = p;
 	//fixme
-	draw_width = width;
+	draw_width  = width;
 	draw_height = height;
 }
 
@@ -521,10 +543,6 @@ void wallpaper() {
 }
 
 void handle_open(wm_msg *msg) {
-	//@Arena
-	char *title = mmap2(MAX_TITLE);
-	strcpy(title, msg->title);
-
 	int x, y, w, h;
 	if (msg->x < 0) x = (width / 2)  - msg->w / 2;
 	else x = msg->x;
@@ -535,7 +553,7 @@ void handle_open(wm_msg *msg) {
 	if (msg->h < 0) h = height;
 	else h = msg->h;
 
-	node *win = window(title, x, y, w, h, msg->flags);
+	node *win = window(msg->title, x, y, w, h, msg->flags);
 	set_focus(win);
 	int shmid = shm_create((width * height * BPP), true);
 	if (shmid < 0) {
@@ -706,9 +724,6 @@ void main(int argc, char **argv) {
 	rectangle r = {100, 100, 500, 300};
 	rectangle deco = {r.x, r.y - 20, r.w, 20};
 	color c = {0, 100, 100};
-	for (int i = 0; i < width*height; i++) {
-		fb[i] = BG;
-	}
 	//u64 *mem = mmap(256);
 
 //	node *window = &nodes[node_i++];
@@ -731,13 +746,13 @@ void main(int argc, char **argv) {
 	wm_msg msg;
 	u64 kb_size;
 	volatile KeyEvent *kb = (KeyEvent *)mmap_keyboard(&kb_size);
-	u64 idx     = 0;
-	u64 last_id = 0;
+	s64 idx     = 1;
+	s64 last_id = 0;
 	while (1) {
-		u32 next = (idx + 1) % kb_size;
-		if (kb[next].event_id > last_id) {
-			last_id = kb[next].event_id;
-			idx = next;
+		if (kb[idx].event_id > last_id) {
+			last_id = kb[idx].event_id;
+			idx++;
+			if (idx >= kb_size) idx = 0;
 		} else break;
 	}
 
@@ -755,9 +770,7 @@ void main(int argc, char **argv) {
 				handle_open(&msg);
 				break;
 			case WM_close:
-				client = get_window_by_id(msg.window_id);
-				if (!client) break;
-				remove_window(client);
+				remove_window(msg.window_id);
 				break;
 			case WM_commit:
 				client = get_window_by_id(msg.window_id);
@@ -778,11 +791,11 @@ void main(int argc, char **argv) {
 		char evbuf[64] = {0};
 		int evbufi = 0;
 		while (1) {
-			u32 next = (idx + 1) % kb_size;
-			if (kb[next].event_id > last_id) {
-				last_id = kb[next].event_id;
-				ev = kb[next];
-				idx = next;
+			if (kb[idx].event_id > last_id) {
+				last_id = kb[idx].event_id;
+				ev = kb[idx];
+				idx++;
+				if (idx >= kb_size) idx = 0;
 				if (ev.modifiers & MOD_RELEASE) continue;
 				should_redraw_screen = true;
 			} else {
@@ -791,10 +804,10 @@ void main(int argc, char **argv) {
 			bool alt = ev.modifiers & MOD_CTRL;
 
 			if (ev.key == '\t') {
-				if (focused_window == -1) focused_window = 0;
-				send_msg(windows.stack[focused_window], WM_unfocus);
 				int i;
 				bool found = false;
+				if (focused_window == -1) focused_window = 0;
+				else send_msg(windows.stack[focused_window], WM_unfocus);
 				for (i = 0; i < windows.sp; i++) {
 					focused_window++;
 					if (focused_window > windows.sp - 1) focused_window = 0;
@@ -813,13 +826,13 @@ void main(int argc, char **argv) {
 			} else if (alt && ev.key == 'q') {
 				if (focused_window >= 0) {
 					node *win = windows.stack[focused_window];
-					win->flags &= ~W_visible;
-					remove_window(win);
+					//win->flags &= ~W_visible;
+					remove_window(win->window_id);
 					send_msg(win, WM_close);
 				}
 			} else if (alt && ev.key == 'd') {
 				exec("launcher.elf");
-			} else if (ev.key == KEY_UP_ARROW) {
+			}  else if (ev.key == KEY_UP_ARROW) {
 				diff.y -= 10;
 			} else if (ev.key == KEY_DOWN_ARROW) {
 				diff.y += 10;
@@ -836,8 +849,8 @@ void main(int argc, char **argv) {
 		}
 
 		if (!should_redraw_screen) { 
-		    sleep(1);
-		    continue;
+			sleep(1);
+			continue;
 		}
 
 
@@ -923,13 +936,17 @@ void main(int argc, char **argv) {
 			if (focuswin->flags & W_movable) {
 				windows.stack[focused_window]->rec.x += diff.x;
 				windows.stack[focused_window]->rec.y += diff.y;
+
+				windows.stack[focused_window]->rec.x += 1;
+				windows.stack[focused_window]->rec.y += 1;
 			}
 		}
 		//imgviewer->rec.x += 1;
 		//imgviewer->rec.y += 1;
 		//set_focus(fontviewer);
 
-		//clientwins[0]->rec.x += 5;
+		//clientwins[0]->rec.x += 1;
+		//clientwins[0]->rec.y += 1;
 		
 		//set_node_target(bar);
 		//draw_background(bar, WHITE);
