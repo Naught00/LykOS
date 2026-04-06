@@ -905,8 +905,6 @@ void main(int argc, char **argv) {
 			if (focuswin->flags & W_movable) {
 				windows.stack[focused_window]->rec.x += diff.x;
 				windows.stack[focused_window]->rec.y += diff.y;
-				windows.stack[focused_window]->rec.x += 1;
-				windows.stack[focused_window]->rec.y += 1;
 			}
 
 		}
