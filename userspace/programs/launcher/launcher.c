@@ -2,26 +2,18 @@
 #include "graphics.c"
 #include "text.c"
 
-u8 font_file[] = {
-#embed "../../fonts/regular.ttf"
-};
-
 int main(void) {
 	window *win = open_window("launcher", -1, -1, 500, 40, W_visible | W_draw_border | W_focusable);
 	set_render_target(win);
 	draw_background(WHITE);
 	commit_win(win);
 
-	//u8 *font = load_font_mem(font_file);
-
 	char key;
 	KeyEvent key_event;
-	stack(char, 256) program_name;
-	stack_reset(program_name);
+	stack(char, 256) program_name = {0};
 	bool should_clear_text_on_next_press = false;
 	while (!should_close(win)) {
 		check_messages();
-		set_render_target(win);
 		draw_background(WHITE);
 
 		while (key_events(win)) {
@@ -44,9 +36,10 @@ int main(void) {
 					return 0;
 				}
 			}
-			draw_text(program_name.stack, true, 5, 5);
-			commit_win(win);
 		}
+
+		draw_text(program_name.stack, true, 5, 5);
+		commit_win(win);
 		sleep(16);
 	}
 }

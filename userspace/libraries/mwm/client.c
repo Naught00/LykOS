@@ -163,6 +163,7 @@ void _check_messages(bool block) {
 		//todo
 		//if (valid_msg) 
 		window *win = get_window_by_win_id(msg.window_id);
+		if (!win) continue;
 		switch (msg.type) {
 		case WM_close:
 			win->local_flags |= WC_should_close;

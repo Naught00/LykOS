@@ -1,9 +1,10 @@
 #pragma once
 #include "../../src/req.h"
+#include "basic.h"
 #include <stdbool.h>
 
 typedef struct {
-  u64 event_id;
+  i64 event_id;
   u16 key;
   u8 modifiers;
 } KeyEvent;
@@ -29,6 +30,7 @@ typedef struct {
 #define SYS_SHM_CREATE 10
 #define SYS_SHM_MAP 11
 #define SYS_MAP_KEYS 12
+#define SYS_TIME_MS 13
 
 #define MBOX_BLOCK true
 
@@ -86,7 +88,10 @@ static inline i64 get_key_event(KeyEvent *ev_ptr) {
   return syscall1(SYS_GET_KV, (u64)ev_ptr);
 }
 
-static inline void *mmap2(u64 size) { return (void *) syscall1(SYS_MMAP, size);}
+static inline void *mmap(u64 size) { return (void *) syscall1(SYS_MMAP, size);}
+//legacy, remove later
+#define mmap2 mmap
+
 
 static inline i64 exec(char *file_name) { return syscall1(SYS_EXEC, (u64)file_name);}
 
@@ -104,4 +109,7 @@ static inline void *shm_map(i32 region_id, u64* out_size) { return (void *)sysca
 
 static inline u64 mmap_keyboard(u64 *out_size) {
   return syscall1(SYS_MAP_KEYS, (u64)out_size);
+}
+static inline u64 uptime_ms(void) {
+  return syscall0(SYS_TIME_MS);
 }

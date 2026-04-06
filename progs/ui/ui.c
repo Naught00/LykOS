@@ -381,6 +381,19 @@ void memcpy_draw_texture_pix(u32 *texture, int ox, int oy, int w, int h) {
 	return;
 }
 
+void manual_draw_texture_pix(u32 *texture, int ox, int oy, int w, int h) {
+	int i;
+	int x, y;
+	i = 0;
+	for (y = oy; y < oy + h; y++) {
+		for (x = ox; x < ox + w; x++, i++) {
+			if (x < 0 || y < 0 || x >= width || y >= height) continue;
+			else pixels[x + (y * draw_width)] = texture[i];
+		}
+	}
+	return;
+}
+
 
 void draw_texture_pix(u32 *texture, int ox, int oy, int w, int h) {
 	bool same_size = w == draw_width && h == draw_height;
@@ -388,7 +401,8 @@ void draw_texture_pix(u32 *texture, int ox, int oy, int w, int h) {
 		memcpy(pixels, texture, draw_width * draw_height * BPP);
 	} else {
 		//fast_draw_texture_pix(texture, ox, oy, w, h);
-		memcpy_draw_texture_pix(texture, ox, oy, w, h);
+		//memcpy_draw_texture_pix(texture, ox, oy, w, h);
+		manual_draw_texture_pix(texture, ox, oy, w, h);
 	}
 }
 
@@ -555,7 +569,7 @@ void handle_open(wm_msg *msg) {
 
 	node *win = window(msg->title, x, y, w, h, msg->flags);
 	set_focus(win);
-	int shmid = shm_create((width * height * BPP), true);
+	int shmid = shm_create((w * h * BPP), true);
 	if (shmid < 0) {
 		lykos_exit();
 	}
@@ -740,14 +754,14 @@ void main(int argc, char **argv) {
 	//node *bar = window("bar", 0, 0, width, 20, W_visible | N_title);
 	//node *launcher = window("launcher", width / 2 - 250, height / 2 - 10, 500, 20, W_visible | N_title | W_draw_border | W_focusable);
 	win3->flags &= ~W_visible;
-	win->flags &= ~W_visible;
 	win2->flags &= ~W_visible;
+	win->flags &= ~W_visible;
 	MailboxMessage out;
 	wm_msg msg;
 	u64 kb_size;
 	volatile KeyEvent *kb = (KeyEvent *)mmap_keyboard(&kb_size);
 	s64 idx     = 1;
-	s64 last_id = 0;
+	s64 last_id = -1;
 	while (1) {
 		if (kb[idx].event_id > last_id) {
 			last_id = kb[idx].event_id;
@@ -759,12 +773,15 @@ void main(int argc, char **argv) {
 	int i, j;
 	exec("bar.elf");
 	exec("launcher.elf");
+	//int start = uptime_ms();
 	for (;;) {
+		//uptime = uptime_ms() - start;
+		set_pix_target(buf);
 		bool should_redraw_screen = false;
 		while (mbox_receive(mboxid, &out, 0)) {
 			//if (valid_msg)
 			node *client;
-			msg = *(wm_msg *)out.data;
+			msg = *(wm_msg *) out.data;
 			switch (msg.type) {
 			case WM_open:
 				handle_open(&msg);
@@ -832,6 +849,8 @@ void main(int argc, char **argv) {
 				}
 			} else if (alt && ev.key == 'd') {
 				exec("launcher.elf");
+			} else if (alt && ev.key == 'b') {
+				exec("bar.elf");
 			}  else if (ev.key == KEY_UP_ARROW) {
 				diff.y -= 10;
 			} else if (ev.key == KEY_DOWN_ARROW) {
@@ -849,31 +868,8 @@ void main(int argc, char **argv) {
 		}
 
 		if (!should_redraw_screen) { 
-			sleep(1);
-			continue;
 		}
 
-
-		//if (launcher->flags & W_visible) {
-		//	set_node_target(launcher);
-		//	draw_background(launcher, WHITE);
-		//	node *n;
-		//	n = text_input(3, launcher, "", launcher->rec, N_focused);
-		//	int x = 0;
-		//	j = 0;
-		//	char c;
-		//	while (c = n->buffer[j++]) {
-		//		if (c == '\n') {
-		//			n->buffer[strlen(n->buffer) - 2] = '\0';
-		//			exec(n->buffer);
-		//			memset(n->buffer, 0, sizeof n->buffer);
-		//			n->buff_i = 0;
-		//		}
-		//		draw_char_scaled(c, x, 5, BLACK, 1);
-		//		x += 8;
-		//	}
-		//	set_pix_target(buf);
-		//}
 		if (win3->flags & W_visible)
 		{
 			set_node_target(win3);
@@ -909,26 +905,17 @@ void main(int argc, char **argv) {
 
 		if (win2->flags & W_visible)
 		{
-			set_node_target(win2);
-			draw_background(win2, dark_background);
-			//draw_texture(surface);
-			char *a;
-			node *n;
-			n = text_input(2, win2, "", win2->rec, 0);
-			a = n->buffer;
-
-			int x= 0;
-			int y= 0;
-			while (*a++) {
-				if (*a == '\n') {
-					y += 8;
-					x = 0;
-				} else {
-					draw_char_scaled(*a, x, y, WHITE, 1);
-					x+=8;
-				}
-			}
-			set_pix_target(buf);
+			//if (uptime >= 1000) {
+			//	set_node_target(win2);
+			//	draw_background(win2, dark_background);
+			//	int fps = frames / (uptime / 1000);
+			//	char x[256];
+			//	snprintf(x, sizeof x, "%u", fps);
+			//	draw_string(x, 5, 5, WHITE);
+			//	set_pix_target(buf);
+			//	start = uptime_ms();
+			//	frames = 0;
+			//}
 		}
 
 		if (focused_window >= 0) {
@@ -936,10 +923,10 @@ void main(int argc, char **argv) {
 			if (focuswin->flags & W_movable) {
 				windows.stack[focused_window]->rec.x += diff.x;
 				windows.stack[focused_window]->rec.y += diff.y;
-
 				windows.stack[focused_window]->rec.x += 1;
 				windows.stack[focused_window]->rec.y += 1;
 			}
+
 		}
 		//imgviewer->rec.x += 1;
 		//imgviewer->rec.y += 1;

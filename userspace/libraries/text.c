@@ -10,9 +10,8 @@
 #include "libc/lib/assert.c"
 #define STB_TRUETYPE_IMPLEMENTATION
 #define STBTT_assert(x) _assert(x)
-#define STBTT_malloc(x, u) kalloc(x)
-//#define STBTT_realloc krealloc
-#define STBTT_free(x, u) kfree(x)
+//#define STBTT_malloc(x, u) mmap(x)
+//#define STBTT_free(x, u) _free(x)
 #include "vendor/stb_truetype.h"
 
 #include "graphics.c"
@@ -166,7 +165,7 @@ int printf(const char *restrict fmt, ...) {
 	static s64 TERM_INDEX;
 	static window *win;
 	static bool terminal_init;
-	if (!terminal_init) {
+	if (!terminal_init || should_close(win)) {
 		win = open_window("Terminal", 100, 100, 400, 600, -1);
 		terminal_init = true;
 	}
