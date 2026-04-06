@@ -36,6 +36,7 @@ void *malloc(size_t sz) {
 	h = mmap(sizeof(header) + sz);
 	h->len = 0;
 	h->capacity = sz;
+	memset(h->data, 0, h->capacity);
 	return h->data;
 
 }
@@ -48,6 +49,7 @@ void free(void *p) {
 	if (!p) return;
 	header *h = (header *) p - 1;
 	if (freelist.sp < countof(freelist.stack)) {
+		memset(h->data, 0, h->capacity);
 		push(freelist, h);
 	} else {
 		//kernel free;

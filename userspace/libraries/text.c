@@ -70,7 +70,7 @@ enum font_type {
 
 
 u8 *load_font_mem(stbtt_bakedchar *cdata, u8 *font) {
-	u8 *bitmap = mmap2(BITMAP_SIZE * BITMAP_SIZE);
+	u8 *bitmap = malloc(BITMAP_SIZE * BITMAP_SIZE);
 	stbtt_BakeFontBitmap(font, 0, FONT_SIZE, bitmap, BITMAP_SIZE, BITMAP_SIZE, 32, 96, cdata);
 	return bitmap;
 }

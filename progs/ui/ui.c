@@ -113,38 +113,12 @@ struct node {
 node nodes[20];
 int node_c = 0;
 stack(node *, 20) windows;
+stack(int,    20) node_freelist;
+int win_id_inc     = 0;
+int focused_window = -1;
 //debug
 node *clientwins[20];
-int clientc = 0;
-int win_id_inc = 0;
-int focused_window = -1;
-
-void remove_window(int win_id) {
-	int i;
-	for (i = 0; i < windows.sp; i++) {
-		node *n = stack_index(windows, i);
-		if (n->window_id == win_id) {
-			for (; i < windows.sp - 1; i++) {
-				windows.stack[i] = windows.stack[i + 1];
-			}
-			windows.stack[i] = null;
-			windows.sp--;
-			break;
-		}
-	}
-	//for (i = 0; i < node_c; i++) {
-	//	if (nodes[i].window_id == win_id) {
-	//		for (; i < node_c - 1; i++) {
-	//			nodes[i] = nodes[i + 1];
-	//		}
-	//		nodes[i] = (node){0};
-	//		node_c--;
-	//		break;
-	//	}
-	//}
-	focused_window = -1;
-	return;
-}
+int clientc        = 0;
 
 void draw_pixel(int x, int y, color c) {
 	if (x < 0 || y < 0 || x >= width || y >= height) return;
@@ -319,6 +293,17 @@ void set_focus(node *n) {
 	}
 }
 
+int get_window_index_by_id(int id) {
+	int i;
+	for (i = 0; i < windows.sp; i++) {
+		node *win = windows.stack[i];
+		if (win->window_id == id) {
+			return i;
+		}
+	}
+	return -1;
+}
+
 node *get_window_by_id(int id) {
 	int i;
 	for (i = 0; i < windows.sp; i++) {
@@ -329,6 +314,13 @@ node *get_window_by_id(int id) {
 	}
 	return null;
 }
+
+void remove_window(int win_id) {
+	stack_remove_index(windows, get_window_index_by_id(win_id));
+	focused_window = -1;
+	return;
+}
+
 
 node *text_input(int id, node *parent, char *base, rectangle rec, unsigned int flags) {
 	node *np;
@@ -738,21 +730,11 @@ void main(int argc, char **argv) {
 	rectangle r = {100, 100, 500, 300};
 	rectangle deco = {r.x, r.y - 20, r.w, 20};
 	color c = {0, 100, 100};
-	//u64 *mem = mmap(256);
-
-//	node *window = &nodes[node_i++];
-//	window->rec = r;
-//	window->title = "mterm";
-//	window->flags |= W_visible;
-//	static u32 term_buf[500 * 300];
-//	window.buf = term_buf;
 
 	
 	node *win3 = window("3D", 200, 300, 500, 300, defwinflags);
 	node *win = window("mterm", 100, 100, 500, 300, defwinflags);
 	node *win2 = window("xd", 400, 600, 500, 300, defwinflags);
-	//node *bar = window("bar", 0, 0, width, 20, W_visible | N_title);
-	//node *launcher = window("launcher", width / 2 - 250, height / 2 - 10, 500, 20, W_visible | N_title | W_draw_border | W_focusable);
 	win3->flags &= ~W_visible;
 	win2->flags &= ~W_visible;
 	win->flags &= ~W_visible;
@@ -760,7 +742,7 @@ void main(int argc, char **argv) {
 	wm_msg msg;
 	u64 kb_size;
 	volatile KeyEvent *kb = (KeyEvent *)mmap_keyboard(&kb_size);
-	s64 idx     = 1;
+	s64 idx     = 0;
 	s64 last_id = -1;
 	while (1) {
 		if (kb[idx].event_id > last_id) {
