@@ -13,6 +13,7 @@ int main(void) {
 	commit_win(win);
 
 	printf("[bar] clearing background...\n");
+	printf("[bar] going to sleep...\n");
 
 	while (!should_close(win)) {
 		check_messages();
@@ -20,7 +21,6 @@ int main(void) {
 		draw_background(WHITE);
 		draw_text("Applications File Edit View", true, 5, 0);
 		commit_win(win);
-		printf("[bar] sleeping for 1000ms...\n");
 		sleep(1000);
 	}
 	return 0;

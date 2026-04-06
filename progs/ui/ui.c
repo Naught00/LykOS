@@ -1,10 +1,6 @@
 #include <math.h>
 #include "../../src/vendor/font.h"
 #include <ctype.h>
-//#include "mn.h"
-//
-//
-
 
 #include "keys.h"
 #include "basic.h"
@@ -20,16 +16,6 @@ void _assert(bool b) {
 u8 img_buffer[] = {
 #embed "snow.jpg"
 };
-u8 scaled_image[] = {
-#embed "scaled_image.jpg"
-};
-
-u8 font_file[] = {
-#embed "mono.ttf"
-};
-
-#include "kalloc.h"
-#include "kalloc.c"
 
 #include "stb_image.h"
 #include "stb_truetype.h"
@@ -85,43 +71,23 @@ enum node_flags {
 
 typedef struct node node;
 struct node {
-	int id;
 	rectangle rec;
-	union {
-		//Text input
-		struct {
-			char buffer[256];
-			int  buff_i;
-		};
-		//Window
-		struct {
-			char title[MAX_TITLE];
-			int window_id;
-			uint32_t texture[1920 * 1080];
-			int client_mbox;
-			uint32_t *shared_buf;
-		};
-
-	};
-	//??
+	char title[MAX_TITLE];
+	int window_id;
+	uint32_t texture[1920 * 1080];
+	int client_mbox;
+	uint32_t *shared_buf;
 	node *parent;
 	unsigned int flags;
 };
 
 
-
-node nodes[20];
-int node_c = 0;
-stack(node *, 20) windows;
-stack(int,    20) node_freelist;
+stack(node, 20) windows;
 int win_id_inc     = 0;
 int focused_window = -1;
-//debug
-node *clientwins[20];
-int clientc        = 0;
 
 void draw_pixel(int x, int y, color c) {
-	if (x < 0 || y < 0 || x >= width || y >= height) return;
+	if (x < 0 || y < 0 || x >= draw_width || y >= draw_height) return;
 	pixels[x + (y * draw_width)] = *(uint32_t *) &c;
 	return;
 }
@@ -199,7 +165,7 @@ void draw_string(char *str, size_t px, size_t py, color c) {
 
 void draw_border(node *n) {
 	color deccolour;
-	if (n == windows.stack[focused_window]) {
+	if (n == &windows.stack[focused_window]) {
 		deccolour = (color){132, 133, 119};
 	} else {
 		deccolour = (color){34, 34, 34};
@@ -209,7 +175,7 @@ void draw_border(node *n) {
 
 void draw_decoration(node *n) { 
 	color deccolour;
-	if (n == windows.stack[focused_window]) {
+	if (n == &windows.stack[focused_window]) {
 		deccolour = (color){132, 133, 119};
 	} else {
 		deccolour = (color){34, 34, 34};
@@ -246,57 +212,24 @@ bool in_rectangle(int x, int y, rectangle r) {
 u32 buf[width * height] = {0};
 
 
-bool node_exists(char *title, node **n) {
-	int i;
-	for (i = 0; i < node_c; i++) {
-		if (nodes[i].flags & N_title && streq(nodes[i].title, title)) {
-			*n = &nodes[i];
-			return true;
-		}
-	}
-	return false;
-}
-
-bool node_exists_id(int id, node **n) {
-	int i;
-	for (i = 0; i < node_c; i++) {
-		if (nodes[i].flags & N_text && nodes[i].id == id) {
-			*n = &nodes[i];
-			return true;
-		}
-	}
-	return false;
-}
-
 unsigned int defwinflags = W_visible | N_title | W_draw_decoration | W_draw_border | W_focusable | W_movable;
 
 node *window(char *title, int x, int y, int w, int h, unsigned int flags) {
 	node *np;
-	np = &nodes[node_c++];
-	np->id = node_c - 1;
+	np = &stack_next(windows);
 	np->client_mbox = -1;
 	strncpy(np->title, title, MAX_TITLE);
 	np->window_id = win_id_inc++;
 	np->rec = (rectangle){x, y, w, h};
 	np->flags = flags | N_title;
 	np->parent = np;
-	push(windows, np);
 	return np;
-}
-
-void set_focus(node *n) {
-	int i;
-	for (i = 0; i < windows.sp; i++) {
-		if (n == windows.stack[i]) {
-			focused_window = i;
-		}
-	}
 }
 
 int get_window_index_by_id(int id) {
 	int i;
 	for (i = 0; i < windows.sp; i++) {
-		node *win = windows.stack[i];
+		node *win = &windows.stack[i];
 		if (win->window_id == id) {
 			return i;
 		}
@@ -304,10 +237,15 @@ int get_window_index_by_id(int id) {
 	return -1;
 }
 
+void set_focus(node *n) {
+	focused_window = get_window_index_by_id(n->window_id);
+	return;
+}
+
 node *get_window_by_id(int id) {
 	int i;
 	for (i = 0; i < windows.sp; i++) {
-		node *win = windows.stack[i];
+		node *win = &windows.stack[i];
 		if (win->window_id == id) {
 			return win;
 		}
@@ -316,24 +254,19 @@ node *get_window_by_id(int id) {
 }
 
 void remove_window(int win_id) {
-	stack_remove_index(windows, get_window_index_by_id(win_id));
-	focused_window = -1;
+	int win_index = get_window_index_by_id(win_id);
+	if (win_index >= 0) {
+		int j = win_index;
+		for (; j < windows.sp - 1; j++) {
+			windows.stack[j] = windows.stack[j + 1];
+		}
+		windows.stack[j] = (node){0};
+		windows.sp--;
+		focused_window = -1;
+	}
 	return;
 }
 
-
-node *text_input(int id, node *parent, char *base, rectangle rec, unsigned int flags) {
-	node *np;
-	if (!node_exists_id(id, &np)) {
-		np = &nodes[node_c++];
-		np->id = id;
-		np->rec = rec;
-		np->flags = N_text | flags;
-		np->buff_i = 0;
-		np->parent = parent;
-	}
-	return np;
-}
 
 #include <emmintrin.h>
 void fast_draw_texture_pix(u32 *texture, int ox, int oy, int w, int h) {
@@ -379,7 +312,7 @@ void manual_draw_texture_pix(u32 *texture, int ox, int oy, int w, int h) {
 	i = 0;
 	for (y = oy; y < oy + h; y++) {
 		for (x = ox; x < ox + w; x++, i++) {
-			if (x < 0 || y < 0 || x >= width || y >= height) continue;
+			if (x < 0 || y < 0 || x >= draw_width || y >= draw_height) continue;
 			else pixels[x + (y * draw_width)] = texture[i];
 		}
 	}
@@ -400,30 +333,6 @@ void draw_texture_pix(u32 *texture, int ox, int oy, int w, int h) {
 
 void draw_texture(node *n) {
 	draw_texture_pix(n->texture, n->rec.x, n->rec.y, n->rec.w, n->rec.h);
-	//int x, y, x1, y1;
-	//x1 = 0;
-	//y1 = 0;
-	//x = n->rec.x;
-	//y = n->rec.y;
-	//int i;
-	////int tex_len = n->rec.w * n->rec.h;
-	//bool out_bounds = false;
-	//for (i = 0; y1 < n->rec.h; i++) {
-	//	//fixme draw_width/height
-	//	out_bounds = x < 0 || y < 0 || x >= width || y >= height;
-	//	if (!out_bounds) 
-	//		pixels[x + (y * draw_width)] = n->texture[x1 + (y1 * n->rec.w)];
-
-	//	if (x1 == n->rec.w - 1) {
-	//		y++;
-	//		y1++;
-	//		x = n->rec.x;
-	//		x1 = 0;
-	//	} else {
-	//		x++;
-	//		x1++;
-	//	}
-	//}
 }
 
 
@@ -464,77 +373,6 @@ void g8bpp_to_32bpp(u32 *out, u8 *in, int w, int h) {
 	}
 }
 
-typedef stbtt_fontinfo Font;
-
-Font init_font(u8 *font_file) {
-	Font f;
-	if (!stbtt_InitFont(&f, font_file, 0))
-	{
-	}
-	return f;
-}
-
-u8 *make_bitmap() {
-	stbtt_bakedchar cdata[96]; // ASCII 32..126 is 95 glyphs
-	u8 *bitmap = mmap2(512*512);
-	stbtt_BakeFontBitmap(font_file, 0, 32.0, bitmap, 512, 512, 32, 96, cdata);
-	char *text = "test";
-	float x = 0;
-	float y = 0;
-	u8 *chara = mmap2(512*512);
-	while (*text) {
-		if (*text >= 32 && *text < 128) {
-			stbtt_aligned_quad q;
-			stbtt_GetBakedQuad(cdata, 512,512, *text-32, &x,&y,&q,1);//1=opengl & d3d10+,0=d3d9
-		}
-
-		++text;
-	}
-	return bitmap;
-}
-void itxt(char *text, int x, int ty, stbtt_fontinfo *font) {
-	u8 *fontbitmap = mmap2(draw_width * draw_height);
-	int bitmapw = draw_width;
-	int line_height = 18;
-	float fscale = stbtt_ScaleForPixelHeight(font, line_height);
-	int ascent, descent, linegap;
-	stbtt_GetFontVMetrics(font, &ascent, &descent, &linegap);
-
-	int i, j;
-	ascent = roundf(ascent * fscale);
-	descent = roundf(descent * fscale);
-	int txt_y = ascent;
-	for (j = 0; j < ty; j++) {
-		txt_y += ascent - descent + linegap;
-	}
-	for (i = 0; i < strlen(text); i++) {
-		if (text[i] == '\n') {
-			txt_y += ascent -  descent + linegap;
-			x = 0;
-			continue;
-		}
-		int ax;
-		int lsb;
-		stbtt_GetCodepointHMetrics(font, text[i], &ax, &lsb);
-
-		int c_x1, c_y1, c_x2, c_y2;
-		stbtt_GetCodepointBitmapBox(font, text[i], fscale, fscale, &c_x1, &c_y1, &c_x2, &c_y2);
-
-		int y = txt_y + c_y1;
-
-		int byteOffset = x + roundf(lsb * fscale) + (y * bitmapw);
-		stbtt_MakeCodepointBitmap(font, (u8 *) fontbitmap + byteOffset, c_x2 - c_x1, c_y2 - c_y1, bitmapw, fscale, fscale, text[i]);
-
-		x += roundf(ax * fscale);
-
-		int kern;
-		kern = stbtt_GetCodepointKernAdvance(font, text[i], text[i + 1]);
-		x += roundf(kern * fscale);
-	}
-	g8bpp_to_32bpp(pixels, fontbitmap, draw_width, draw_height);
-	return;
-}
-
 #include "3d.c"
 
 void wallpaper() {
@@ -569,7 +407,6 @@ void handle_open(wm_msg *msg) {
 	u64 sz;
 	uint32_t *buf = shm_map(shmid, &sz);
 	win->shared_buf = buf;
-	clientwins[clientc++] = win;
 	win->client_mbox = msg->mailbox;
 
 	//respond
@@ -628,121 +465,17 @@ void main(int argc, char **argv) {
 		lykos_exit();
 	}
 
-//	int region = shm_create(640 * 480 * 4, true);
-//	if (region < 0) {
-//		lykos_exit();
-//	}
-//
-//	u64 sz;
-//	u32 *p = shm_map(region, &sz);
-//	if (!p) lykos_exit();
-//
-////	char *hi = "hello from server\n";
-////	strcpy(p, hi);
-	//exec("client.elf");
-//	exec("wexample.elf");
-//	node *client = window("Client", 400, 700, 640, 480, defwinflags);
-//	//memset(client->texture, 0xffffff, 640 * 480 * 4);
-//	//memcpy(client->texture, p, 640 * 480 * 4);
-//	set_node_target(client);
-//	draw_texture_pix(p, 0, 0, 640, 480);
-//	set_pix_target(buf);
-
-
-	//u8 *scaled = stbi_load_from_memory(scaled_image, sizeof scaled_image, &iw, &ih, &ic, 4);
-	//bgr_to_rgb(scaled, iw, ih);
-	//node *imgviewer = window("Image Viewer", 200, 300, iw, ih, defwinflags);
-	//imgviewer->flags &= ~W_visible;
-	//set_pix_target(imgviewer->texture);
-	//draw_width = iw;
-	//draw_texture_pix((u32 *)scaled, 0, 0, iw, ih);
-	//draw_width = width;
-
-
-
-	//node *fontviewer = window("stb_truetype", 300, 100, 512, 512, defwinflags);
-	//fontviewer->flags &= ~W_visible;
-	//stbtt_fontinfo font;
-	//u8 *fontbitmap = mmap2(fontviewer->rec.w * fontviewer->rec.h);
-	//int bitmapw = fontviewer->rec.w;
-	//if (!stbtt_InitFont(&font, font_file, 0))
-	//{
-	//	lykos_exit();
-	//}
-	//set_node_target(fontviewer);
-	//draw_background(fontviewer, dark_background);
-	//char *text = "test again\nnewline";
-	//u8 *bitmap = make_bitmap();
-	//g8bpp_to_32bpp(fontviewer->texture, bitmap, fontviewer->rec.w, fontviewer->rec.h);
-	//text_draw_string(text, 0, 0, &font);
-	//fix
-//	int line_height = 18;
-//	float fscale = stbtt_ScaleForPixelHeight(&font, line_height);
-//	int ascent, descent, linegap;
-//	stbtt_GetFontVMetrics(&font, &ascent, &descent, &linegap);
-//	//*ascent - *descent + *lineGap
-//	//char *word = "Unicode: año Straße, €100";
-//	//int omega = 0x03A9;
-//	//int word[1] = {omega};
-//	//char *word = "This is a test using stb_truetype.\n Newline";
-//	char *word = "#include <stdio.h>\n\nint main(void) {\n    printf(\"hello\");\n}\nmoretext\nmoretext\noretext";
-//
-//	int i, x;
-//	set_node_target(fontviewer);
-//	draw_background(fontviewer, dark_background);
-//	ascent = roundf(ascent * fscale);
-//	descent = roundf(descent * fscale);
-//	int txt_y = ascent;
-//	for (i = 0, x = 0; i < strlen(word); i++) {
-//		if (word[i] == '\n') {
-//			txt_y += ascent -  descent + linegap;
-//			x = 0;
-//			continue;
-//		}
-//		int ax;
-//		int lsb;
-//		stbtt_GetCodepointHMetrics(&font, word[i], &ax, &lsb);
-//
-//		int c_x1, c_y1, c_x2, c_y2;
-//		stbtt_GetCodepointBitmapBox(&font, word[i], fscale, fscale, &c_x1, &c_y1, &c_x2, &c_y2);
-//
-//		int y = txt_y + c_y1;
-//
-//		int byteOffset = x + roundf(lsb * fscale) + (y * bitmapw);
-//		stbtt_MakeCodepointBitmap(&font, (u8 *) fontbitmap + byteOffset, c_x2 - c_x1, c_y2 - c_y1, bitmapw, fscale, fscale, word[i]);
-//
-//		x += roundf(ax * fscale);
-//
-//		int kern;
-//		kern = stbtt_GetCodepointKernAdvance(&font, word[i], word[i + 1]);
-//		x += roundf(kern * fscale);
-//	}
-//	//bgr_to_rgb((u8 *) fontviewer->texture, fontviewer->rec.w, fontviewer->rec.h);
-//	g8bpp_to_32bpp(fontviewer->texture, fontbitmap, fontviewer->rec.w, fontviewer->rec.h);
-////	for (int k = 0; k < 100 * 100; k++) {
-////		fontviewer->texture[k] = 0xfffffffff;
-////	}
-//
 	set_pix_target(buf);
-
-
 
 	rectangle r = {100, 100, 500, 300};
 	rectangle deco = {r.x, r.y - 20, r.w, 20};
 	color c = {0, 100, 100};
-
 	
-	node *win3 = window("3D", 200, 300, 500, 300, defwinflags);
-	node *win = window("mterm", 100, 100, 500, 300, defwinflags);
-	node *win2 = window("xd", 400, 600, 500, 300, defwinflags);
-	win3->flags &= ~W_visible;
-	win2->flags &= ~W_visible;
-	win->flags &= ~W_visible;
 	MailboxMessage out;
 	wm_msg msg;
 	u64 kb_size;
 	volatile KeyEvent *kb = (KeyEvent *)mmap_keyboard(&kb_size);
-	s64 idx     = 0;
+	s64 idx     = 1;
 	s64 last_id = -1;
 	while (1) {
 		if (kb[idx].event_id > last_id) {
@@ -755,9 +488,7 @@ void main(int argc, char **argv) {
 	int i, j;
 	exec("bar.elf");
 	exec("launcher.elf");
-	//int start = uptime_ms();
 	for (;;) {
-		//uptime = uptime_ms() - start;
 		set_pix_target(buf);
 		bool should_redraw_screen = false;
 		while (mbox_receive(mboxid, &out, 0)) {
@@ -806,11 +537,11 @@ void main(int argc, char **argv) {
 				int i;
 				bool found = false;
 				if (focused_window == -1) focused_window = 0;
-				else send_msg(windows.stack[focused_window], WM_unfocus);
+				else send_msg(&windows.stack[focused_window], WM_unfocus);
 				for (i = 0; i < windows.sp; i++) {
 					focused_window++;
 					if (focused_window > windows.sp - 1) focused_window = 0;
-					node *win = windows.stack[focused_window];
+					node *win = &windows.stack[focused_window];
 					if (!(win->flags & W_focusable) || !(win->flags & W_visible)) {
 						continue;
 					} else {
@@ -819,15 +550,15 @@ void main(int argc, char **argv) {
 					}
 				}
 				if (!found) focused_window = -1;
-				else send_msg(windows.stack[focused_window], WM_focus);
+				else send_msg(&windows.stack[focused_window], WM_focus);
 			} else if (ev.key == KEY_ESCAPE) {
 				lykos_exit();
 			} else if (alt && ev.key == 'q') {
 				if (focused_window >= 0) {
-					node *win = windows.stack[focused_window];
-					//win->flags &= ~W_visible;
-					remove_window(win->window_id);
+					node *win = &windows.stack[focused_window];
+					win->flags &= ~W_visible;
 					send_msg(win, WM_close);
+					remove_window(win->window_id);
 				}
 			} else if (alt && ev.key == 'd') {
 				exec("launcher.elf");
@@ -843,7 +574,7 @@ void main(int argc, char **argv) {
 				diff.x += 10;
 			} else {
 				if (focused_window >= 0) {
-					node *win = windows.stack[focused_window];
+					node *win = &windows.stack[focused_window];
 					send_key(win, ev);
 				} 
 			}
@@ -852,88 +583,31 @@ void main(int argc, char **argv) {
 		if (!should_redraw_screen) { 
 		}
 
-		if (win3->flags & W_visible)
-		{
-			set_node_target(win3);
-			draw_background(win3, dark_background);
-			render3d();
-			set_pix_target(buf);
-		}
-
-		if (win->flags & W_visible)
-		{
-			set_node_target(win);
-			draw_background(win, dark_background);
-			char *prompt = "/user> ";
-			int prompt_len = strlen(prompt) * 8;
-			//draw_string(prompt, 0, 0, WHITE);
-			//text_draw_string(prompt, 0, 0, &font);
-			char *a;
-			node *n;
-			n = text_input(1, win, "", win->rec, N_focused);
-			a = n->buffer;
-
-			int x = prompt_len;
-			int y = 0;
-			//text_draw_string(a, x, 0, &font);
-			//while (*a) {
-//					draw_char_scaled(*a, x, y, WHITE, 1);
-//					x += 8;
-//				}
-//				*a++;
-			//}
-			set_pix_target(buf);
-		}
-
-		if (win2->flags & W_visible)
-		{
-			//if (uptime >= 1000) {
-			//	set_node_target(win2);
-			//	draw_background(win2, dark_background);
-			//	int fps = frames / (uptime / 1000);
-			//	char x[256];
-			//	snprintf(x, sizeof x, "%u", fps);
-			//	draw_string(x, 5, 5, WHITE);
-			//	set_pix_target(buf);
-			//	start = uptime_ms();
-			//	frames = 0;
-			//}
-		}
+	//	if (win2->flags & W_visible)
+	//	{
+	//		//if (uptime >= 1000) {
+	//		//	set_node_target(win2);
+	//		//	draw_background(win2, dark_background);
+	//		//	int fps = frames / (uptime / 1000);
+	//		//	char x[256];
+	//		//	snprintf(x, sizeof x, "%u", fps);
+	//		//	draw_string(x, 5, 5, WHITE);
+	//		//	set_pix_target(buf);
+	//		//	start = uptime_ms();
+	//		//	frames = 0;
+	//		//}
+	//	}
 
 		if (focused_window >= 0) {
-			node *focuswin = windows.stack[focused_window];
+			node *focuswin = &windows.stack[focused_window];
 			if (focuswin->flags & W_movable) {
-				windows.stack[focused_window]->rec.x += diff.x;
-				windows.stack[focused_window]->rec.y += diff.y;
+				(&windows.stack[focused_window])->rec.x += diff.x;
+				(&windows.stack[focused_window])->rec.y += diff.y;
 			}
 
 		}
-		//imgviewer->rec.x += 1;
-		//imgviewer->rec.y += 1;
-		//set_focus(fontviewer);
-
-		//clientwins[0]->rec.x += 1;
-		//clientwins[0]->rec.y += 1;
-		
-		//set_node_target(bar);
-		//draw_background(bar, WHITE);
-		//draw_string("Applications File Edit View", 5, 5, BLACK);
-		//if (focused_window >= 0)
-		//	draw_string(windows[focused_window]->title, 30 * 8 , 5, BLACK);
-		//set_pix_target(buf);
-
-//		for (i = 0; i < node_c; i++) {
-//			node *np = &nodes[i];
-//			bool has_focus = np->parent == windows[focused_window];
-//			if (has_focus && np->flags & N_text && evbufi) {
-//				for (int x = 0; x < evbufi; x++) {
-//					np->buffer[np->buff_i++] = evbuf[x];
-//				}
-//			}
-//		}
-		//fixme drawstack
 		for (i = 0; i < windows.sp; i++) {
-			node *np = windows.stack[i];
+			node *np = &windows.stack[i];
 			if (!(np->flags & W_visible))
 				continue;
 
@@ -943,9 +617,9 @@ void main(int argc, char **argv) {
 			if (np->flags & W_draw_border)
 				draw_border(np);
 		}
-
+		//FIXME drawstack
 		if (focused_window >= 0) {
-			node *np = windows.stack[focused_window];
+			node *np = &windows.stack[focused_window];
 			if (np->flags & W_visible) {
 				draw_texture(np);
 				if (np->flags & W_draw_decoration)

@@ -69,6 +69,19 @@ bool in_rectangle(int x, int y, rectangle r) {
 	else return false;
 }
 
+void manual_draw_texture_pix(u32 *texture, int ox, int oy, int w, int h) {
+	int i;
+	int x, y;
+	i = 0;
+	for (y = oy; y < oy + h; y++) {
+		for (x = ox; x < ox + w; x++, i++) {
+			if (x < 0 || y < 0 || x >= draw_width || y >= draw_height) continue;
+			else pixels[x + (y * draw_width)] = texture[i];
+		}
+	}
+	return;
+}
+
 void draw_texture_pix(u32 *texture, int ox, int oy, int w, int h) {
 	//fixme : volatile memcpy?
 //	bool same_size = w == draw_width && h == draw_height;
@@ -76,28 +89,8 @@ void draw_texture_pix(u32 *texture, int ox, int oy, int w, int h) {
 //		memcpy(pixels, texture, draw_width * draw_height * sizeof(u32));
 //		return;
 //	}
-	int x, y, x1, y1;
-	x1 = 0;
-	y1 = 0;
-	x = ox;
-	y = oy;
-	int i;
-	bool out_bounds;
-	for (i = 0; y1 < h; i++) {
-		//fixme draw_width/height
-		out_bounds = x < 0 || y < 0 || x >= draw_width || y >= draw_height;
-		if (!out_bounds) 
-			pixels[x + (y * draw_width)] = texture[x1 + (y1 * w)];
-		if (x1 == w - 1) {
-			y++;
-			y1++;
-			x = ox;
-			x1 = 0;
-		} else {
-			x++;
-			x1++;
-		}
-	}
+	manual_draw_texture_pix(texture, ox, oy, w, h);
+	return;
 }
 
 void draw_background(color c) {

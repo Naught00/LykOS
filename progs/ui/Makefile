@@ -11,5 +11,5 @@ stub:
 client:
 	gcc $(CFLAGS) client.c -o client.elf $(USERSPACE)/libraries/libc/libc.a
 	mcopy -i ../../fat16.img -o client.elf ::/client.elf
-stb.o:
+stb.o: stb.c
 	gcc $(CFLAGS) stb.c -c

@@ -19,7 +19,12 @@ static header *first_fit(size_t sz) {
 	for (i = 0; i < freelist.sp; i++) {
 		header *h = freelist.stack[i];
 		if (h->capacity >= sz) {
-			stack_remove_index(freelist, i);
+			int j;
+			for (j = i; j < freelist.sp - 1; j++) {
+				freelist.stack[j] = freelist.stack[j + 1];
+			}
+			freelist.stack[j] = null;
+			freelist.sp--;
 			return h;
 		}
 	}
