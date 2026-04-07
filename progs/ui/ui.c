@@ -487,7 +487,6 @@ void main(int argc, char **argv) {
 
 	int i, j;
 	exec("bar.elf");
-	exec("launcher.elf");
 	for (;;) {
 		set_pix_target(buf);
 		bool should_redraw_screen = false;
