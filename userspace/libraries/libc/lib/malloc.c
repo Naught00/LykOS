@@ -1,3 +1,4 @@
+#pragma once
 #include "basic.h"
 #include "lykosapi.h"
 #include <stdint.h>

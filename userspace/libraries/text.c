@@ -35,7 +35,7 @@ void blit_surface(rectangle *dest, u8 *input, rectangle *src, bool black) {
 			}
 			c.r = b; c.g = b; c.b = b; c.a = 255;
 			if (black && b < 255) draw_pixel(dest->x + x, dest->y + y, c);
-			if (!black && b) draw_pixel(dest->x + x, dest->y + y, c);
+			if (!black && b)      draw_pixel(dest->x + x, dest->y + y, c);
 		}
 	}
 	return;

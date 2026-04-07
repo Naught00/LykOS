@@ -41,6 +41,7 @@ int main() {
 	bool redraw = true;
 	while (!should_close(win)) {
 		check_messages();
+
 		KeyEvent key_event;
 		while (key_events(win)) {
 			key_event = next_key(win);
@@ -57,6 +58,12 @@ int main() {
 				break;
 			}
 		}
+		while (key_release_events(win)) {
+			key_event = next_release_key(win);
+			char key = key_event.key;
+			printf("%s: Released %c\n", __FILE__, key);
+		}
+
 		set_render_target(win);
 		draw_background(BLACK);
 		float x = 0, y = 0;

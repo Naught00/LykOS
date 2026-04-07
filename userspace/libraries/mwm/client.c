@@ -23,6 +23,7 @@ struct window {
 	volatile uint32_t *surface;
 
 	stack(KeyEvent, 16) keybuffer;
+	stack(KeyEvent, 16) key_release_buffer;
 
 	unsigned int flags;
 	unsigned int local_flags;
@@ -175,7 +176,11 @@ void _check_messages(bool block) {
 			win->local_flags &= ~WC_has_focus;
 			break;
 		case WM_key:
-			if (win->keybuffer.sp < 16) push(win->keybuffer, msg.key_event);
+			if (msg.key_event.modifiers & MOD_RELEASE) {
+				if (stack_free_space(win->key_release_buffer)) push(win->key_release_buffer, msg.key_event);
+			} else {
+				if (stack_free_space(win->keybuffer)) push(win->keybuffer, msg.key_event);
+			}
 			break;
 		default: break;
 		}
@@ -203,5 +208,7 @@ void check_messages_block(void) {
 #define has_focus(win) (win->local_flags & WC_has_focus)
 #define key_events(win) win->keybuffer.sp
 #define next_key(win) pop(win->keybuffer)
+#define key_release_events(win) win->key_release_buffer.sp
+#define next_release_key(win) pop(win->key_release_buffer)
 
 #endif

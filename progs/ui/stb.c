@@ -9,10 +9,3 @@ void _assert(bool b);
 #define STBI_REALLOC realloc
 #define STBI_FREE free
 #include "stb_image.h"
-
-#define STB_TRUETYPE_IMPLEMENTATION
-#define STBTT_assert(x) _assert(x)
-#define STBTT_malloc(x, u) malloc(x)
-//#define STBTT_realloc krealloc
-#define STBTT_free(x, u) free(x)
-#include "stb_truetype.h"

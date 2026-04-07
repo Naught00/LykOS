@@ -526,7 +526,12 @@ void main(int argc, char **argv) {
 				ev = kb[idx];
 				idx++;
 				if (idx >= kb_size) idx = 0;
-				if (ev.modifiers & MOD_RELEASE) continue;
+				if (ev.modifiers & MOD_RELEASE && focused_window >= 0) {
+					node *win = &windows.stack[focused_window];
+					send_key(win, ev);
+					continue;
+				} 
+
 				should_redraw_screen = true;
 			} else {
 				break;
