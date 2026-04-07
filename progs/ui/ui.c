@@ -585,6 +585,8 @@ void main(int argc, char **argv) {
 		}
 
 		if (!should_redraw_screen) { 
+			sleep(1);
+			continue;
 		}
 
 	//	if (win2->flags & W_visible)

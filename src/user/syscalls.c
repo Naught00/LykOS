@@ -14,22 +14,28 @@
 
 i64 sys_exit(interrupt_frame *frame) {
   // TODO: use frame for reason why sys exit e.g success failure etc
+  asm volatile("cli");
   (void)frame;
   task_exit();
+  asm volatile("sti");
   return 1;
 }
 
 i64 sys_sleep(interrupt_frame *frame) {
+  asm volatile("cli");
   u64 ms = frame->rdi;
   serial_fstring("Sleeping by syscall for {uint} ms\n", ms);
   task_sleep(ms);
+  asm volatile("sti");
   return 1;
 }
 
 i64 sys_write(interrupt_frame *frame) {
+  asm volatile("cli");
   char *str = (char *)frame->rdi;
   terminal_fstring("{str}", str);
   serial_writeln(str);
+  asm volatile("sti");
   return 1;
 }
 
@@ -70,6 +76,7 @@ i64 get_key_event(interrupt_frame *frame) {
 // TODO: on demand allocation instead of doing it upfront, kernel stalls in
 // syscall if allocation is large
 u64 sys_mmap(interrupt_frame *frame) {
+  asm volatile("cli");
   Task *t = &tasks[current_task];
   u64 size = frame->rdi;
 
@@ -89,9 +96,11 @@ u64 sys_mmap(interrupt_frame *frame) {
   }
 
   add_vma(t, addr, addr + (pages * FRAME_SIZE));
+  asm volatile("sti");
   return addr;
 }
 u64 map_key_events(interrupt_frame *frame) {
+  asm volatile("cli");
   Task *t = &tasks[current_task];
   u64 buf_virt = 0xEE000000;
   u64 addr = (u64)key_event_buffer;
@@ -112,42 +121,62 @@ u64 map_key_events(interrupt_frame *frame) {
   }
 
   add_vma(t, buf_virt, addr + (pages_needed * FRAME_SIZE));
+  asm volatile("sti");
   return buf_virt;
 }
 
 i64 sys_exec(interrupt_frame *frame) {
+  asm volatile("cli");
   char *file_name = (char *)frame->rdi;
   i64 ret = exec(file_name);
+  asm volatile("sti");
   return ret;
 }
 
 i64 sys_mbox_create(interrupt_frame *frame) {
+  asm volatile("cli");
   u64 requested_id = frame->rdi;
-  return mbox_create(requested_id);
+  i64 id = mbox_create(requested_id);
+  asm volatile("sti");
+  return id;
 }
 
 i64 sys_mbox_send(interrupt_frame *frame) {
+  asm volatile("cli");
   u64 id = frame->rdi;
   char *data = (char *)frame->rsi;
   u64 data_len = frame->rdx;
-  return mbox_send(id, data, data_len);
+  i64 x = mbox_send(id, data, data_len);
+  asm volatile("sti");
+  return x;
 }
 
 i64 sys_mbox_receive(interrupt_frame *frame) {
+  asm volatile("cli");
   u64 id = frame->rdi;
   MailboxMessage *out = (MailboxMessage *)frame->rsi;
   bool blocking = (bool)frame->rdx;
-  return mbox_receive(id, out, blocking);
+  i64 x = mbox_receive(id, out, blocking);
+  asm volatile("sti");
+  return x;
 }
 
 i32 sys_shm_create(interrupt_frame *frame) {
-  return shm_create(frame->rdi, frame->rsi);
+  asm volatile("cli");
+  i32 id = shm_create(frame->rdi, frame->rsi);
+  asm volatile("sti");
+  return id;
 }
 
 u64 sys_shm_map(interrupt_frame *frame) {
-  return shm_map(frame->rdi, (u64 *)frame->rsi);
+  asm volatile("cli");
+  u64 x = shm_map(frame->rdi, (u64 *)frame->rsi);
+  asm volatile("sti");
+  return x;
 }
 u64 sys_get_ms(interrupt_frame *frame) {
+  asm volatile("cli");
   (void)frame;
   return ticks_to_ms(pit_get_ticks());
+  asm volatile("sti");
 }
