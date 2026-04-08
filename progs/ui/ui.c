@@ -657,7 +657,6 @@ void main(int argc, char **argv) {
 			} else {
 				set_key_pressed(ev.key);
 				if (focused_window >= 0) {
-					write("sending key in the ui\n");
 					node *win = &windows.stack[focused_window];
 					send_key(win, ev);
 				} 
