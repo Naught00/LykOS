@@ -32,6 +32,7 @@ u8 img_buffer[] = {
 uint32_t *pixels;
 int draw_width = width;
 int draw_height = width;
+#define MAX_WINDOWS 20
 
 typedef struct color {
 	uint8_t r, g, b, a;
@@ -255,7 +256,7 @@ node *get_window_by_id(int id) {
 
 void remove_window(int win_id) {
 	int win_index = get_window_index_by_id(win_id);
-	if (win_index >= 0) {
+	if (win_index > -1) {
 		int j = win_index;
 		for (; j < windows.sp - 1; j++) {
 			windows.stack[j] = windows.stack[j + 1];
@@ -452,6 +453,51 @@ void send_msg(node *win, enum wm_msg_type type) {
 	return;
 }
 
+u64 keymap[3];
+u64 ascii_to_key(char c, int *key_map_index) {
+	u64 i = c - '!';
+	u64 bit = 1 << i % 64;
+	*key_map_index = i / 64;
+	return bit;
+}
+
+void set_key_released(int k) {
+	int index = 0;
+	u32 key_bit;
+	key_bit = ascii_to_key(k, &index);
+	keymap[index] &= ~key_bit;
+	return;
+}
+
+void set_key_pressed(int k) {
+	int index = 0;
+	u32 key_bit;
+	key_bit = ascii_to_key(k, &index);
+	keymap[index] |= key_bit;
+	return;
+}
+
+bool key_pressed(int k) {
+	int index = 0;
+	u64 key_bit;
+	key_bit = ascii_to_key(k, &index);
+	if (keymap[index] & key_bit) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+bool key_released(int k) {
+	int index = 0;
+	u64 key_bit;
+	key_bit = ascii_to_key(k, &index);
+	if (keymap[index] & key_bit) {
+		return false;
+	} else {
+		return true;
+	}
+}
 
 void main(int argc, char **argv) {
 	u32 *fb = mmap_fb();
@@ -465,7 +511,6 @@ void main(int argc, char **argv) {
 		lykos_exit();
 	}
 
-	set_pix_target(buf);
 
 	rectangle r = {100, 100, 500, 300};
 	rectangle deco = {r.x, r.y - 20, r.w, 20};
@@ -476,7 +521,7 @@ void main(int argc, char **argv) {
 	u64 kb_size;
 	volatile KeyEvent *kb = (KeyEvent *)mmap_keyboard(&kb_size);
 	s64 idx     = 1;
-	s64 last_id = -1;
+	s64 last_id = 0;
 	while (1) {
 		if (kb[idx].event_id > last_id) {
 			last_id = kb[idx].event_id;
@@ -487,8 +532,9 @@ void main(int argc, char **argv) {
 
 	int i, j;
 	exec("bar.elf");
+	stack(node *, MAX_WINDOWS) clients_that_need_redraw;
+	set_pix_target(buf);
 	for (;;) {
-		set_pix_target(buf);
 		bool should_redraw_screen = false;
 		while (mbox_receive(mboxid, &out, 0)) {
 			//if (valid_msg)
@@ -504,37 +550,41 @@ void main(int argc, char **argv) {
 			case WM_commit:
 				client = get_window_by_id(msg.window_id);
 				if (!client) break;
-				uint32_t *cbuf = client->shared_buf;
 
-				set_node_target(client);
-				draw_texture_pix(cbuf, 0, 0, client->rec.w, client->rec.h);
-				set_pix_target(buf);
+				push(clients_that_need_redraw, client);
 				should_redraw_screen = true;
 				break;
 			default: break;
 			}
 		}
 
-		vector2 diff = {0};
+		while (clients_that_need_redraw.sp) {
+			node *client = pop(clients_that_need_redraw);
+			set_node_target(client);
+			draw_texture_pix(client->shared_buf, 0, 0, client->rec.w, client->rec.h);
+			set_pix_target(buf);
+		}
+
 		KeyEvent ev;
-		char evbuf[64] = {0};
-		int evbufi = 0;
 		while (1) {
 			if (kb[idx].event_id > last_id) {
 				last_id = kb[idx].event_id;
 				ev = kb[idx];
 				idx++;
 				if (idx >= kb_size) idx = 0;
-				if (ev.modifiers & MOD_RELEASE && focused_window >= 0) {
-					node *win = &windows.stack[focused_window];
-					send_key(win, ev);
-					continue;
-				} 
 
-				should_redraw_screen = true;
 			} else {
 				break;
 			}
+			if (ev.modifiers & MOD_RELEASE) {
+				set_key_released(ev.key);
+				if (focused_window > -1) {
+					node *win = &windows.stack[focused_window];
+					send_key(win, ev);
+				}
+				continue;
+			} 
+
 			bool alt = ev.modifiers & MOD_CTRL;
 
 			if (ev.key == '\t') {
@@ -553,34 +603,44 @@ void main(int argc, char **argv) {
 						break;
 					}
 				}
-				if (!found) focused_window = -1;
-				else send_msg(&windows.stack[focused_window], WM_focus);
-			} else if (ev.key == KEY_ESCAPE) {
+				if (!found) {
+					focused_window = -1;
+				} else {
+					send_msg(&windows.stack[focused_window], WM_focus);
+					should_redraw_screen = true;
+				}
+			} else if (alt && ev.key == KEY_ESCAPE) {
 				lykos_exit();
 			} else if (alt && ev.key == 'q') {
 				if (focused_window >= 0) {
 					node *win = &windows.stack[focused_window];
-					win->flags &= ~W_visible;
 					send_msg(win, WM_close);
 					remove_window(win->window_id);
+					should_redraw_screen = true;
 				}
 			} else if (alt && ev.key == 'd') {
 				exec("launcher.elf");
 			} else if (alt && ev.key == 'b') {
 				exec("bar.elf");
-			}  else if (ev.key == KEY_UP_ARROW) {
-				diff.y -= 10;
-			} else if (ev.key == KEY_DOWN_ARROW) {
-				diff.y += 10;
-			} else if (ev.key == KEY_LEFT_ARROW) {
-				diff.x -= 10;
-			} else if (ev.key == KEY_RIGHT_ARROW) {
-				diff.x += 10;
 			} else {
+				set_key_pressed(ev.key);
 				if (focused_window >= 0) {
 					node *win = &windows.stack[focused_window];
 					send_key(win, ev);
 				} 
+			}
+
+		}
+		if (focused_window >= 0) {
+			node *focusedwin = &windows.stack[focused_window];
+			rectangle *win_rec = &(windows.stack[focused_window].rec);
+			if (focusedwin->flags & W_movable) {
+				if (key_pressed(KEY_RIGHT_ARROW)) win_rec->x += 5;
+				if (key_pressed(KEY_LEFT_ARROW))  win_rec->x -= 5;
+				if (key_pressed(KEY_UP_ARROW))    win_rec->y -= 5;
+				if (key_pressed(KEY_DOWN_ARROW))  win_rec->y += 5;
+
+				should_redraw_screen = true;
 			}
 		}
 
@@ -588,6 +648,8 @@ void main(int argc, char **argv) {
 			sleep(1);
 			continue;
 		}
+
+
 
 	//	if (win2->flags & W_visible)
 	//	{
@@ -604,14 +666,6 @@ void main(int argc, char **argv) {
 	//		//}
 	//	}
 
-		if (focused_window >= 0) {
-			node *focuswin = &windows.stack[focused_window];
-			if (focuswin->flags & W_movable) {
-				(&windows.stack[focused_window])->rec.x += diff.x;
-				(&windows.stack[focused_window])->rec.y += diff.y;
-			}
-
-		}
 		for (i = 0; i < windows.sp; i++) {
 			node *np = &windows.stack[i];
 			if (!(np->flags & W_visible))
