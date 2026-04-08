@@ -19,7 +19,7 @@ int main(void) {
 		check_messages();
 		set_render_target(win);
 		draw_background(WHITE);
-		draw_text("Applications File Edit View", true, 5, 0);
+		draw_text("Programs File Edit View", true, 5, 0);
 		commit_win(win);
 		sleep(1000);
 	}

@@ -610,6 +610,10 @@ void main(int argc, char **argv) {
 					should_redraw_screen = true;
 				}
 			} else if (alt && ev.key == KEY_ESCAPE) {
+				for (i = 0; i < windows.sp; i++) {
+					node *win = &windows.stack[i];
+					send_msg(win, WM_close);
+				}
 				lykos_exit();
 			} else if (alt && ev.key == 'q') {
 				if (focused_window >= 0) {
