@@ -11,8 +11,9 @@ enum wm_msg_type {
 	WM_commit,
 	WM_focus,
 	WM_unfocus,
-
 	WM_key,
+	WM_change_focus,
+	WM_subscribe,
 };
 
 enum window_flags {

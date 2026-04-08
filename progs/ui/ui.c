@@ -84,6 +84,7 @@ struct node {
 
 
 stack(node, 20) windows;
+stack(int , MAX_WINDOWS) change_focus_subscribers;
 int win_id_inc     = 0;
 int focused_window = -1;
 
@@ -238,11 +239,6 @@ int get_window_index_by_id(int id) {
 	return -1;
 }
 
-void set_focus(node *n) {
-	focused_window = get_window_index_by_id(n->window_id);
-	return;
-}
-
 node *get_window_by_id(int id) {
 	int i;
 	for (i = 0; i < windows.sp; i++) {
@@ -291,8 +287,7 @@ void fast_draw_texture_pix(u32 *texture, int ox, int oy, int w, int h) {
 }
 
 void memcpy_draw_texture_pix(u32 *texture, int ox, int oy, int w, int h) {
-	int x, y, i;
-	bool out_bounds;
+	int y, i;
 	int offset = 0;
 	int row_len;
 
@@ -387,6 +382,60 @@ void wallpaper() {
 	set_pix_target(buf);
 }
 
+void send_key(node *win, KeyEvent key) {
+	if (win->client_mbox < 0)
+		return;
+
+	wm_msg msg = {0};
+	msg.type = WM_key;
+	msg.key_event = key;
+	msg.window_id = win->window_id;
+	mbox_send(win->client_mbox, &msg, sizeof msg);
+	return;
+}
+
+void send_wm_msg(node *win, wm_msg *msg) {
+	if (win->client_mbox < 0)
+		return;
+
+	mbox_send(win->client_mbox, msg, sizeof *msg);
+	return;
+}
+
+void send_msg(node *win, enum wm_msg_type type) {
+	if (win->client_mbox < 0)
+		return;
+
+	wm_msg msg;
+	msg.type = type;
+	msg.window_id = win->window_id;
+	mbox_send(win->client_mbox, &msg, sizeof msg);
+	return;
+}
+
+void set_focus_index(int window_index) {
+	int i;
+	node *win;
+	focused_window = window_index;
+
+	win = &windows.stack[focused_window];
+	for (i = 0; i < change_focus_subscribers.sp; i++) {
+		int subscriber_mailbox = change_focus_subscribers.stack[i];
+
+		wm_msg msg = {0};
+		msg.type  = WM_change_focus;
+		strncpy(msg.title, win->title, sizeof msg.title);
+		mbox_send(subscriber_mailbox, &msg, sizeof msg);
+	}
+	return;
+}
+
+void set_focus(node *win) {
+	int index = get_window_index_by_id(win->window_id);
+	set_focus_index(index);
+	return;
+}
+
 void handle_open(wm_msg *msg) {
 	int x, y, w, h;
 	if (msg->x < 0) x = (width / 2)  - msg->w / 2;
@@ -419,39 +468,10 @@ void handle_open(wm_msg *msg) {
 	response.given_y = y;
 	response.given_w = w;
 	response.given_h = h;
-	int ret = mbox_send(msg->mailbox, &response, sizeof response);
+	mbox_send(msg->mailbox, &response, sizeof response);
 	return;
 }
 
-void handle_msg(wm_msg *msg) {
-	switch (msg->type) {
-	case WM_open:
-		break;
-	}
-}
-
-void send_key(node *win, KeyEvent key) {
-	if (win->client_mbox < 0)
-		return;
-
-	wm_msg msg;
-	msg.type = WM_key;
-	msg.key_event = key;
-	msg.window_id = win->window_id;
-	mbox_send(win->client_mbox, &msg, sizeof msg);
-	return;
-}
-
-void send_msg(node *win, enum wm_msg_type type) {
-	if (win->client_mbox < 0)
-		return;
-
-	wm_msg msg;
-	msg.type = type;
-	msg.window_id = win->window_id;
-	mbox_send(win->client_mbox, &msg, sizeof msg);
-	return;
-}
 
 u64 keymap[3];
 u64 ascii_to_key(char c, int *key_map_index) {
@@ -500,9 +520,7 @@ bool key_released(int k) {
 }
 
 void main(int argc, char **argv) {
-	u32 *fb = mmap_fb();
 	wallpaper();
-	int iw, ih, ic;
 
 	int mboxid = 0;
 	int err = mbox_create(mboxid); 
@@ -511,17 +529,14 @@ void main(int argc, char **argv) {
 		lykos_exit();
 	}
 
+	u32 *fb = mmap_fb();
 
-	rectangle r = {100, 100, 500, 300};
-	rectangle deco = {r.x, r.y - 20, r.w, 20};
-	color c = {0, 100, 100};
-	
 	MailboxMessage out;
 	wm_msg msg;
 	u64 kb_size;
 	volatile KeyEvent *kb = (KeyEvent *)mmap_keyboard(&kb_size);
-	s64 idx     = 1;
-	s64 last_id = 0;
+	s64 idx     = 0;
+	s64 last_id = -1;
 	while (1) {
 		if (kb[idx].event_id > last_id) {
 			last_id = kb[idx].event_id;
@@ -530,16 +545,16 @@ void main(int argc, char **argv) {
 		} else break;
 	}
 
-	int i, j;
+	int i;
 	exec("bar.elf");
-	stack(node *, MAX_WINDOWS) clients_that_need_redraw;
-	set_pix_target(buf);
+	stack(node *, MAX_WINDOWS) clients_that_need_redraw = {{}, 0};
 	for (;;) {
+		set_pix_target(buf);
 		bool should_redraw_screen = false;
 		while (mbox_receive(mboxid, &out, 0)) {
 			//if (valid_msg)
-			node *client;
 			msg = *(wm_msg *) out.data;
+			node *client = get_window_by_id(msg.window_id);
 			switch (msg.type) {
 			case WM_open:
 				handle_open(&msg);
@@ -547,8 +562,19 @@ void main(int argc, char **argv) {
 			case WM_close:
 				remove_window(msg.window_id);
 				break;
+			case WM_subscribe:
+				if (msg.flags & WM_change_focus) {
+					push(change_focus_subscribers, msg.mailbox);
+					if (focused_window > -1) {
+						node *focused = &windows.stack[focused_window];
+						wm_msg response = {0};
+						response.type  = WM_change_focus;
+						strncpy(response.title, focused->title, sizeof response.title);
+						mbox_send(msg.mailbox, &response, sizeof response);
+					}
+				}
+				break;
 			case WM_commit:
-				client = get_window_by_id(msg.window_id);
 				if (!client) break;
 
 				push(clients_that_need_redraw, client);
@@ -588,27 +614,29 @@ void main(int argc, char **argv) {
 			bool alt = ev.modifiers & MOD_CTRL;
 
 			if (ev.key == '\t') {
-				int i;
+				int i, search_index;
 				bool found = false;
-				if (focused_window == -1) focused_window = 0;
-				else send_msg(&windows.stack[focused_window], WM_unfocus);
+				if (focused_window > -1) {
+					search_index = focused_window;
+				} else {
+					search_index = 0;
+				}
 				for (i = 0; i < windows.sp; i++) {
-					focused_window++;
-					if (focused_window > windows.sp - 1) focused_window = 0;
-					node *win = &windows.stack[focused_window];
+					search_index++;
+					if (search_index > windows.sp - 1) search_index = 0;
+					node *win = &windows.stack[search_index];
 					if (!(win->flags & W_focusable) || !(win->flags & W_visible)) {
 						continue;
 					} else {
 						found = true;
+						send_msg(&windows.stack[focused_window], WM_unfocus);
+						set_focus_index(search_index);
+						send_msg(win, WM_focus);
+						should_redraw_screen = true;
 						break;
 					}
 				}
-				if (!found) {
-					focused_window = -1;
-				} else {
-					send_msg(&windows.stack[focused_window], WM_focus);
-					should_redraw_screen = true;
-				}
+				if (!found) focused_window = -1;
 			} else if (alt && ev.key == KEY_ESCAPE) {
 				for (i = 0; i < windows.sp; i++) {
 					node *win = &windows.stack[i];
@@ -629,6 +657,7 @@ void main(int argc, char **argv) {
 			} else {
 				set_key_pressed(ev.key);
 				if (focused_window >= 0) {
+					write("sending key in the ui\n");
 					node *win = &windows.stack[focused_window];
 					send_key(win, ev);
 				} 
@@ -672,8 +701,8 @@ void main(int argc, char **argv) {
 
 		for (i = 0; i < windows.sp; i++) {
 			node *np = &windows.stack[i];
-			if (!(np->flags & W_visible))
-				continue;
+			if (!(np->flags & W_visible)) continue;
+			if (np == &windows.stack[focused_window]) continue;
 
 			draw_texture(np);
 			if (np->flags & W_draw_decoration)

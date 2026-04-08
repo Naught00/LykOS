@@ -8,8 +8,9 @@
 #include "basic.h"
 
 enum local_flags {
-	WC_should_close = 0x1,
-	WC_has_focus    = 0x2,
+	WC_should_close     = 0x1,
+	WC_has_focus        = 0x2,
+	WC_focus_changed    = 0x4,
 };
 
 typedef struct window window;
@@ -29,11 +30,14 @@ struct window {
 	unsigned int local_flags;
 };
 
-stack(window, 20) nodes;
+stack(window, 20) mwmc_windows;
 
 atomic bool mwmc_init = false;
 int mwmc_mboxid;
 int DEFWINFLAGS = W_visible | W_draw_decoration | W_draw_border | W_focusable | W_movable;
+
+char mwmc_focused_window_title[MAX_TITLE];
+unsigned int mwmc_global_flags;
 
 void init_client() {
 	mwmc_mboxid = mbox_create(-1); 
@@ -74,8 +78,8 @@ window *open_window(char *title, int x, int y, int w, int h, unsigned int flags)
 		return null;
 	}
 
-	np = &stack_next(nodes);
-	np->id = nodes.sp - 1;
+	np = &stack_next(mwmc_windows);
+	np->id = mwmc_windows.sp - 1;
 	np->title = title;
 	//np->window_id = win_c;
 	np->flags = flags;
@@ -124,8 +128,8 @@ void close_window(window *win) {
 
 window *get_window_by_win_id(int win_id) {
 	int i;
-	for (i = 0; i < nodes.sp; i++) {
-		window *n = &stack_index(nodes, i);
+	for (i = 0; i < mwmc_windows.sp; i++) {
+		window *n = &stack_index(mwmc_windows, i);
 		if (n->window_id == win_id) 
 			return n;
 	}
@@ -159,12 +163,14 @@ void poll_keys(window *) {
 void _check_messages(bool block) {
 	wm_msg msg;
 	MailboxMessage out;
-	while (mbox_receive(mwmc_mboxid, &out, 0)) {
+	int ret;
+
+	while (mbox_receive(mwmc_mboxid, &out, block)) {
+		block = false;
 		msg = *(wm_msg *) out.data;
 		//todo
 		//if (valid_msg) 
 		window *win = get_window_by_win_id(msg.window_id);
-		if (!win) continue;
 		switch (msg.type) {
 		case WM_close:
 			win->local_flags |= WC_should_close;
@@ -174,6 +180,10 @@ void _check_messages(bool block) {
 			break;
 		case WM_unfocus:
 			win->local_flags &= ~WC_has_focus;
+			break;
+		case WM_change_focus:
+			mwmc_global_flags |= WC_focus_changed;
+			strncpy(mwmc_focused_window_title, msg.title, sizeof mwmc_focused_window_title);
 			break;
 		case WM_key:
 			if (msg.key_event.modifiers & MOD_RELEASE) {
@@ -187,8 +197,8 @@ void _check_messages(bool block) {
 	}
 
 	int i;
-	for (i = 0; i < nodes.sp; i++) {
-		window *win = &stack_index(nodes, i);
+	for (i = 0; i < mwmc_windows.sp; i++) {
+		window *win = &stack_index(mwmc_windows, i);
 		if (win->local_flags & WC_has_focus) {
 			poll_keys(win);
 		}
@@ -201,6 +211,25 @@ void check_messages(void) {
 }
 void check_messages_block(void) {
 	_check_messages(true);
+}
+
+void subscribe(enum wm_msg_type message_type) {
+	wm_msg msg = {0};
+	msg.type = WM_subscribe;
+	msg.flags |= message_type;
+	msg.mailbox = mwmc_mboxid;;
+	mbox_send(DISPLAY, &msg, sizeof msg);
+	return;
+}
+
+
+char *focus_changed() {
+	if (mwmc_global_flags & WC_focus_changed) {
+		mwmc_global_flags &= ~WC_focus_changed;
+		return mwmc_focused_window_title;
+	} else {
+		return null;
+	}
 }
 
 

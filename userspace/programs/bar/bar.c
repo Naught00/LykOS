@@ -13,15 +13,27 @@ int main(void) {
 	commit_win(win);
 
 	printf("[bar] clearing background...\n");
-	printf("[bar] going to sleep...\n");
+	printf("[bar] subscribing to WM_change_focus messages...\n");
+	subscribe(WM_change_focus);
+	printf("[bar] blocking...\n");
 
+	char title[MAX_TITLE] = {0};
 	while (!should_close(win)) {
-		check_messages();
+		check_messages_block();
+		printf("[bar] unblocked on message...\n");
+		char *new_title = focus_changed();
+		if (new_title) {
+			strncpy(title, new_title, sizeof title);
+			printf("got new title\n");
+		}
 		set_render_target(win);
 		draw_background(WHITE);
-		draw_text("Programs File Edit View", true, 5, 0);
+		float x = 5;
+		float y = 0;
+		draw_text_pro("Programs File Edit View  ", true, &x, &y);
+		draw_text_pro(title, true, &x, &y);
 		commit_win(win);
-		sleep(1000);
+
 	}
 	return 0;
 }
