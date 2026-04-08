@@ -3,7 +3,7 @@
 #include "text.c"
 
 int main(void) {
-	window *win = open_window("launcher", -1, -1, 500, 40, W_visible | W_draw_border | W_focusable);
+	window *win = open_window("Launcher", -1, -1, 500, 40, W_visible | W_draw_border | W_focusable);
 	set_render_target(win);
 	draw_background(WHITE);
 	commit_win(win);

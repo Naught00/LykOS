@@ -23,7 +23,7 @@ char *str = "this is a test with text\n";
 
 int main() {
 	window *win;
-	win = open_window("test", -1, -1, 640, 480, -1);
+	win = open_window("Window Example", -1, -1, 640, 480, -1);
 	if (!win) lykos_exit();
 
 	int i, j;

@@ -157,6 +157,8 @@ void _term_move_head(char *buf, ssize len, int *head) {
 	}
 }
 
+#define log_printf(fmt, ...) printf("%s:%ld: " fmt "\n", __FILE__, __LINE__ __VA_OPT__(,) __VA_ARGS__)
+
 
 int printf(const char *restrict fmt, ...) {
 	static char TERMBUFFER[4096];
@@ -184,35 +186,37 @@ int printf(const char *restrict fmt, ...) {
 	string_builder formatted = {0, sizeof _formatted, _formatted};
 	va_list ap;
 	va_start(ap, fmt);
-	for (i = 0, j = 0; j < len; j++) {
-		char *s;
-		if (fmt[j] == '%') {
-			switch (fmt[j + 1]) {
-			case 's':
-				s = va_arg(ap, char *);
-				string x = string_from_cstring(s);
-				string_cat(&formatted, x);
-				break;
-			case 'c':
-				string_cat_char(&formatted, va_arg(ap, int));
-				break;
-			default:
-				break;
-			}
-			j++;
-		} else {
-			string_cat_char(&formatted, fmt[j]);
-		}
-	}
+	vsnprintf(_formatted, sizeof _formatted, fmt, ap);
 	va_end(ap);
-	string finished = string_builder_finish_null(formatted);
-	for (j = 0; j < finished.len; j++) {
-		TERMBUFFER[TERM_INDEX % sizeof TERMBUFFER] = finished.s[j];
+	//for (i = 0, j = 0; j < len; j++) {
+	//	char *s;
+	//	if (fmt[j] == '%') {
+	//		switch (fmt[j + 1]) {
+	//		case 's':
+	//			s = va_arg(ap, char *);
+	//			string x = string_from_cstring(s);
+	//			string_cat(&formatted, x);
+	//			break;
+	//		case 'c':
+	//			string_cat_char(&formatted, va_arg(ap, int));
+	//			break;
+	//		default:
+	//			break;
+	//		}
+	//		j++;
+	//	} else {
+	//		string_cat_char(&formatted, fmt[j]);
+	//	}
+	//}
+	//va_end(ap);
+	//string finished = string_builder_finish_null(formatted);
+	for (j = 0; j < strlen(_formatted); j++) {
+		TERMBUFFER[TERM_INDEX % sizeof TERMBUFFER] = _formatted[j];
 		TERM_INDEX++;
 		if (term_count < sizeof TERMBUFFER) {
 			term_count++;
 		} 
-		if (finished.s[j] == '\n') {
+		if (_formatted[j] == '\n') {
 			if (lines >= max_lines) _term_move_head(TERMBUFFER, term_count, &TERM_HEAD);
 			else lines++;
 		}

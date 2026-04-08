@@ -12,19 +12,19 @@ int main(void) {
 	draw_background(WHITE);
 	commit_win(win);
 
-	printf("[bar] clearing background...\n");
-	printf("[bar] subscribing to WM_change_focus messages...\n");
+	log_printf("clearing background...");
+	log_printf("subscribing to WM_change_focus messages...");
 	subscribe(WM_change_focus);
-	printf("[bar] blocking...\n");
+	log_printf("blocking...");
 
 	char title[MAX_TITLE] = {0};
 	while (!should_close(win)) {
 		check_messages_block();
-		printf("[bar] unblocked on message...\n");
+		log_printf("unblocked on message...");
 		char *new_title = focus_changed();
 		if (new_title) {
 			strncpy(title, new_title, sizeof title);
-			printf("got new title\n");
+			log_printf("got new title");
 		}
 		set_render_target(win);
 		draw_background(WHITE);
