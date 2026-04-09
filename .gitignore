@@ -2,6 +2,7 @@ bin/
 obj/
 .idea/
 iso_root/
+tmp/
 image.iso
 .cache
 compile_commands.json

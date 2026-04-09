@@ -2,7 +2,6 @@ CFLAGS = -I../../libraries -I/usr/lib64/musl/include -ffreestanding -fno-stack-p
 
 LPATH = ../../libraries
 LIBS := $(LIBS) $(LPATH)/libc/libc.a
-LIBS := $(LIBS) $(LPATH)/libc/musl.a
 
 run:
 	gcc $(CFLAGS) window_example.c -o wexample.elf $(LIBS)

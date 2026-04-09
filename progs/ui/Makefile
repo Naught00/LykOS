@@ -6,7 +6,6 @@ all: run
 LPATH = $(USERSPACELIB)
 LIBS := $(LIBS) stb.o
 LIBS := $(LIBS) $(LPATH)/libc/libc.a
-LIBS := $(LIBS) $(LPATH)/libc/musl.a
 
 run: stb.o
 	gcc -std=gnu23 $(CFLAGS) ui.c -o ui.elf $(LIBS)
