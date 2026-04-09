@@ -6,12 +6,9 @@
 #include "shapes.h"
 #include "basic.h"
 #include "lykosapi.h"
-#include "libc/lib/malloc.c"
-#include "libc/lib/assert.c"
-#define STB_TRUETYPE_IMPLEMENTATION
-#define STBTT_assert(x) _assert(x)
-//#define STBTT_malloc(x, u) mmap(x)
-//#define STBTT_free(x, u) _free(x)
+
+#include <stdlib.h>
+#include <assert.h>
 #include "vendor/stb_truetype.h"
 
 #include "graphics.c"

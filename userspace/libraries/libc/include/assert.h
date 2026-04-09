@@ -1,0 +1,1 @@
+void assert(bool expression);

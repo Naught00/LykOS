@@ -1,5 +1,10 @@
-CFLAGS = -I../../ -I../../libraries -I/usr/lib64/musl/include -ffreestanding -fno-stack-protector -Wall -static -no-pie -g -O3 -nostdlib ../../libraries/libc/crt0.o
+CFLAGS = -I../../libraries -I/usr/lib64/musl/include -ffreestanding -fno-stack-protector -Wall -static -no-pie -g -O3 -nostdlib 
+
+LPATH = ../../libraries
+LIBS := $(LIBS) $(LPATH)/libc/libc.a
+LIBS := $(LIBS) $(LPATH)/libc/musl.a
+
 run:
-	gcc $(CFLAGS) bar.c -o bar.elf ../../libraries/libc/libc.a
+	gcc $(CFLAGS) bar.c -o bar.elf $(LIBS)
 	mcopy -i ../../../fat16.img -o bar.elf ::/bar.elf
 

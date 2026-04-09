@@ -5,11 +5,11 @@
 */
 
 
+#include <stdio.h>
 #include "shapes.h"
 #include "mwm/client.c"
 #include "graphics.c"
 #include "text.c"
-#include "stdio.h"
 
 u8 font_file[] = {
 #embed "../../fonts/mono.ttf"
