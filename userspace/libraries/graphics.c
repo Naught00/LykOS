@@ -2,7 +2,6 @@
 #define GRAPHICS_C
 #include <math.h>
 #include "shapes.h"
-#include "mwm/client.c"
 
 typedef struct color {
 	uint8_t r, g, b, a;
@@ -100,6 +99,30 @@ void draw_background(color c) {
 	}
 }
 
+void bgr_to_rgb(byte *bgr, int w, int h) {
+	int i;
+	ssize len = w * h * 4;
+	for (i = 0; i < len; i += 4) {
+		byte tmp = bgr[i];
+		bgr[i] = bgr[i + 2];
+		bgr[i + 2] = tmp;
+	}
+}
+
+void g8bpp_to_32bpp(u32 *out, u8 *in, int w, int h) {
+	int i, x;
+	ssize len = w * h * 4;
+	u8 *outb = (u8 *) out;
+	for (i = 0, x = 0; i < len; i += 4) {
+		byte b = in[x++];
+		if (!b) continue;
+		outb[i] = b;
+		outb[i + 1] = b;
+		outb[i + 2] = b;
+		outb[i + 3] = b;
+	}
+}
+
 vector2 to_screen(vector2f p) {
 	vector2 vec;
 	vec.x = (p.x + 1)/2 * draw_width;
@@ -124,24 +147,5 @@ vector3f rotate_xz(vector3f p, float angle) {
 	float s = sinf(angle);
 	vector3f v = {p.x * c - p.z * s, p.y, p.x * s + p.z * c};
 	return v;
-}
-
-
-window *render_target;
-window *last_render_target;
-//depends on windowing system
-void set_render_target(window *win) {
-	last_render_target = render_target;
-	render_target = win;
-	draw_width = win->rec.w;
-	draw_height = win->rec.h;
-	pixels     = win->surface;
-	return;
-}
-
-void pop_render_target() {
-	if (last_render_target) {
-		set_render_target(last_render_target);
-	}
 }
 #endif

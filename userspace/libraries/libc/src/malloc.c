@@ -63,10 +63,13 @@ void free(void *p) {
 }
 
 void *realloc(void *p, size_t sz) {
+	if (!p) return malloc(sz);
+	if (p && !sz) {
+		free(p);
+		return null;
+	}
 	header *old = (header *) p - 1;
 	void *newp = malloc(sz);
-	header *new = (header *) newp - 1;
-
-	memmove(new->data, old->data, old->capacity);
-	return new->data;
+	memmove(newp, p, old->capacity);
+	return newp;
 }

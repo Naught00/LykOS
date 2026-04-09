@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include "shapes.h"
 #include "mwm/client.c"
+#include "mwm/utils.c"
 #include "graphics.c"
 #include "text.c"
 

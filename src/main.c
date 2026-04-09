@@ -65,14 +65,14 @@ void kmain(void) {
   tasking_init();
   
   task_create("keyboard", &keyboard_process);
- kstring z = make_kstring("exec ui.elf", 10);
+  kstring z = make_kstring("exec wm.elf", 10);
   shell_execute(&z);
 
 // task_create("uptime-clock", &draw_clock);
 // task_create("spinner", &pit_spinner_tick);
- task_create("terminal", &terminal_process);
-  kstring x = make_kstring("exec write", 10);
-  shell_execute(&x);
+  task_create("terminal", &terminal_process);
+  //kstring x = make_kstring("exec write", 10);
+  //shell_execute(&x);
 
   while (1) {
 	  yield();

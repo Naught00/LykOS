@@ -2,7 +2,10 @@
 #define  TEXT_C
 #include <stdio.h>
 #include <stdarg.h>
+#ifndef TEXT_NO_STDIO
 #include "mwm/client.c"
+#include "mwm/utils.c"
+#endif
 #include "shapes.h"
 #include "basic.h"
 #include "lykosapi.h"
@@ -140,6 +143,7 @@ void draw_text(char *text, bool black, float x, float y) {
 	draw_text_ex(_selected_font, text, black, &x, &y);
 }
 
+#ifndef TEXT_NO_STDIO
 
 #define _termbuffer_index(index) TERMBUFFER[index % sizeof TERMBUFFER]
 
@@ -156,7 +160,6 @@ void _term_move_head(char *buf, ssize len, int *head) {
 
 #define log_printf(fmt, ...) printf("%s:%ld: " fmt "\n", __FILE__, __LINE__ __VA_OPT__(,) __VA_ARGS__)
 
-
 int printf(const char *restrict fmt, ...) {
 	static char TERMBUFFER[4096];
 	static int TERM_HEAD;
@@ -172,7 +175,7 @@ int printf(const char *restrict fmt, ...) {
 	Font *last_font = _selected_font;
 	set_font(MONO);
 	set_render_target(win);
-    draw_background(WHITE);
+	draw_background(WHITE);
 
 	int max_lines = draw_height / FONT_SIZE;
 	static int lines; 
@@ -237,5 +240,6 @@ int printf(const char *restrict fmt, ...) {
 	pop_render_target();
 	return 0;
 }
+#endif
 
 #endif

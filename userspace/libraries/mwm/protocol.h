@@ -22,6 +22,7 @@ enum window_flags {
 	W_draw_border = 0x4,
 	W_focusable = 0x8,
 	W_movable = 0x10,
+	W_background = 0x20,
 };
 
 typedef struct wm_msg {
