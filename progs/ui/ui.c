@@ -652,8 +652,6 @@ void main(int argc, char **argv) {
 				}
 			} else if (alt && ev.key == 'd') {
 				exec("launcher.elf");
-			} else if (alt && ev.key == 'b') {
-				exec("bar.elf");
 			} else {
 				set_key_pressed(ev.key);
 				if (focused_window >= 0) {

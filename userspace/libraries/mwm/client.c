@@ -173,12 +173,15 @@ void _check_messages(bool block) {
 		window *win = get_window_by_win_id(msg.window_id);
 		switch (msg.type) {
 		case WM_close:
+			if (!win) break;
 			win->local_flags |= WC_should_close;
 			break;
 		case WM_focus:
+			if (!win) break;
 			win->local_flags |= WC_has_focus;
 			break;
 		case WM_unfocus:
+			if (!win) break;
 			win->local_flags &= ~WC_has_focus;
 			break;
 		case WM_change_focus:
@@ -186,6 +189,7 @@ void _check_messages(bool block) {
 			strncpy(mwmc_focused_window_title, msg.title, sizeof mwmc_focused_window_title);
 			break;
 		case WM_key:
+			if (!win) break;
 			if (msg.key_event.modifiers & MOD_RELEASE) {
 				if (stack_free_space(win->key_release_buffer)) push(win->key_release_buffer, msg.key_event);
 			} else {
