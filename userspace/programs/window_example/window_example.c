@@ -1,6 +1,6 @@
 /* Window manager client example program.
    Opens window and prints its source code to the screen.
-   The client must sleep between frames to avoid
+   The client should either sleep or block between frames to avoid
    taking up too much CPU time from the window manager.
 */
 
@@ -39,32 +39,7 @@ int main() {
 	int  head = 0;
 	char line[256] = {0};
 	set_font(MONO);
-	bool redraw = true;
 	while (!should_close(win)) {
-		check_messages();
-
-		KeyEvent key_event;
-		while (key_events(win)) {
-			key_event = next_key(win);
-			char key = key_event.key;
-			switch (key) {
-			case 'j':
-				if (head < linec) head += 1;
-				break;
-			case 'k':
-				if (head >= 0) head -= 1;
-				break;
-			default:
-				printf("%s: Pressed %c\n", __FILE__, key);
-				break;
-			}
-		}
-		while (key_release_events(win)) {
-			key_event = next_release_key(win);
-			char key = key_event.key;
-			printf("%s: Released %c\n", __FILE__, key);
-		}
-
 		set_render_target(win);
 		draw_background(BLACK);
 		float x = 0, y = 0;
@@ -81,9 +56,30 @@ int main() {
 				continue;
 			}
 		}
-
 		commit_win(win);
-		sleep(16);
+		check_messages_block();
+
+		KeyEvent key_event;
+		while (key_events(win)) {
+			key_event = next_key(win);
+			char key = key_event.key;
+			switch (key) {
+			case 'j':
+				if (head < linec) head += 1;
+				break;
+			case 'k':
+				if (head > 0) head -= 1;
+				break;
+			default:
+				printf("%s: Pressed %c\n", __FILE__, key);
+				break;
+			}
+		}
+		while (key_release_events(win)) {
+			key_event = next_release_key(win);
+			char key = key_event.key;
+			printf("%s: Released %c\n", __FILE__, key);
+		}
 	}
 	close_window(win);
 	return 0;

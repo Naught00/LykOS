@@ -3,7 +3,7 @@
 #include "text.c"
 
 int main(void) {
-	window *win = open_window("Launcher", -1, -1, 500, 40, W_visible | W_draw_border | W_focusable);
+	window *win = open_window("Launcher", -1, -1, 500, 30, W_visible | W_draw_border | W_focusable);
 	set_render_target(win);
 	draw_background(WHITE);
 	commit_win(win);
@@ -13,9 +13,7 @@ int main(void) {
 	stack(char, 256) program_name = {0};
 	bool should_clear_text_on_next_press = false;
 	while (!should_close(win)) {
-		check_messages();
-		draw_background(WHITE);
-
+		check_messages_block();
 		while (key_events(win)) {
 			if (should_clear_text_on_next_press) {
 				stack_reset(program_name);
@@ -26,6 +24,9 @@ int main(void) {
 			key = key_event.key;
 			if (key >= ' ' && key <= '~') {
 				push(program_name, key);
+			} else if (key == '\b') {
+				if (program_name.sp)
+					pop(program_name) = '\0';
 			} else if (key == '\n') {
 				int ret = exec(program_name.stack);
 				if (ret < 0) {
@@ -38,8 +39,11 @@ int main(void) {
 			}
 		}
 
-		draw_text(program_name.stack, true, 5, 5);
+		float x = 5;
+		float y = 2;
+		draw_background(WHITE);
+		draw_text_pro(program_name.stack, true, &x, &y);
+		draw_text_pro("|", true, &x, &y);
 		commit_win(win);
-		sleep(16);
 	}
 }

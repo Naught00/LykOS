@@ -439,6 +439,7 @@ void main(void) {
 				handle_open(&msg);
 				break;
 			case WM_close:
+				if (!client) break;
 				remove_window(msg.window_id);
 				break;
 			case WM_subscribe:
