@@ -15,6 +15,8 @@ struct header {
 
 stack(header *, 20) freelist;
 
+static u8 valid_mem[1];
+
 static header *first_fit(size_t sz) {
 	int i;
 	for (i = 0; i < freelist.sp; i++) {
@@ -27,8 +29,8 @@ static header *first_fit(size_t sz) {
 			freelist.stack[j] = null;
 			freelist.sp--;
 			return h;
-		} else if (h->capacity > sz) {
-			int leftover = h->capacity - sz;
+		} else if (h->capacity > sz + sizeof(header)) {
+			int leftover = h->capacity - (sz + sizeof(header));
 			header *new_header = (void *) (h->data + leftover);
 
 			new_header->capacity = sz;
@@ -40,6 +42,7 @@ static header *first_fit(size_t sz) {
 }
 
 void *malloc(size_t sz) {
+	if (!sz) return valid_mem;
 	header *h;
 	if (freelist.sp) {
 		h = first_fit(sz);
@@ -60,6 +63,7 @@ void *calloc(size_t n, size_t sz) {
 
 void free(void *p) {
 	if (!p) return;
+	if (p == valid_mem) return;
 	header *h = (header *) p - 1;
 	if (freelist.sp < countof(freelist.stack)) {
 		memset(h->data, 0, h->capacity);

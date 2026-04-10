@@ -1,7 +1,8 @@
-#include <stdlib.h>
 #include "src/malloc.c"
 #include "src/stdio.c"
 #include "src/assert.c"
+
+#include <stdlib.h>
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "../vendor/stb_truetype.h"
 #define STBI_NO_STDIO

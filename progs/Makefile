@@ -12,7 +12,6 @@ SRCS := $(filter-out crt0.c, $(SRCS))
 ELFS = $(SRCS:.c=.elf)
 
 all: crt0.o $(ELFS) install
-	make -C ui
 
 crt0.o: crt0.c
 	$(CC) $(CFLAGS) -c -o crt0.o crt0.c
