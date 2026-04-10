@@ -25,12 +25,6 @@
 
 color dark_background = {11, 11, 11, 255};
 
-enum node_flags {
-	N_title = 0x20,
-	N_text = 0x40,
-	N_focused = 0x80,
-};
-
 typedef struct node node;
 struct node {
 	rectangle rec;
@@ -139,7 +133,7 @@ void draw_window(node *n) {
 
 u32 buf[width * height] = {0};
 
-unsigned int defwinflags = W_visible | N_title | W_draw_decoration | W_draw_border | W_focusable | W_movable;
+unsigned int defwinflags = W_visible | W_draw_decoration | W_draw_border | W_focusable | W_movable;
 
 void send_msg(node *win, enum wm_msg_type type) {
 	if (win->client_mbox < 0)
@@ -168,7 +162,7 @@ node *window(char *title, int x, int y, int w, int h, unsigned int flags) {
 	strncpy(np->title, title, MAX_TITLE);
 	np->window_id = win_id_inc++;
 	np->rec = (rectangle){x, y, w, h};
-	np->flags = flags | N_title;
+	np->flags = flags; 
 	return np;
 }
 
@@ -433,8 +427,8 @@ void main(void) {
 	int i;
 	stack(node *, MAX_WINDOWS) clients_that_need_redraw = {{}, 0};
 	exec("bar.elf");
+	set_pix_target(buf);
 	for (;;) {
-		set_pix_target(buf);
 		bool should_redraw_screen = false;
 		while (mbox_receive(mboxid, &out, 0)) {
 			//if (valid_msg)
@@ -462,8 +456,16 @@ void main(void) {
 			case WM_commit:
 				if (!client) break;
 
-				push(clients_that_need_redraw, client);
-				should_redraw_screen = true;
+				bool client_already_redrawing_this_frame = false;
+				for (i = 0; i < clients_that_need_redraw.sp; i++)
+					if (clients_that_need_redraw.stack[i]->window_id == client->window_id)
+							client_already_redrawing_this_frame = true;
+
+
+				if (!client_already_redrawing_this_frame) {
+						push(clients_that_need_redraw, client);
+						should_redraw_screen = true;
+				}
 				break;
 			default: break;
 			}
@@ -567,20 +569,18 @@ void main(void) {
 
 
 
-	//	if (win2->flags & W_visible)
-	//	{
-	//		//if (uptime >= 1000) {
-	//		//	set_node_target(win2);
-	//		//	draw_background(win2, dark_background);
-	//		//	int fps = frames / (uptime / 1000);
-	//		//	char x[256];
-	//		//	snprintf(x, sizeof x, "%u", fps);
-	//		//	draw_string(x, 5, 5, WHITE);
-	//		//	set_pix_target(buf);
-	//		//	start = uptime_ms();
-	//		//	frames = 0;
-	//		//}
-	//	}
+		//if (win2->flags & W_visible)
+		//{
+		//	//if (uptime > 1000) {
+		//	//	set_node_target(win2);
+		//	//	draw_node_background(win2, dark_background);
+		//	//	int fps = frames / (uptime / 1000);
+		//	//	char x[256];
+		//	//	snprintf(x, sizeof x, "%u", fps);
+		//	//	draw_string(x, 5, 5, WHITE);
+		//	//	set_pix_target(buf);
+		//	//}
+		//}
 
 		for (i = 0; i < windows.sp; i++) {
 			node *np = &windows.stack[i];

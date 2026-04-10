@@ -19,7 +19,7 @@ static header *first_fit(size_t sz) {
 	int i;
 	for (i = 0; i < freelist.sp; i++) {
 		header *h = freelist.stack[i];
-		if (h->capacity >= sz) {
+		if (h->capacity == sz) {
 			int j;
 			for (j = i; j < freelist.sp - 1; j++) {
 				freelist.stack[j] = freelist.stack[j + 1];
@@ -27,6 +27,13 @@ static header *first_fit(size_t sz) {
 			freelist.stack[j] = null;
 			freelist.sp--;
 			return h;
+		} else if (h->capacity > sz) {
+			int leftover = h->capacity - sz;
+			header *new_header = (void *) (h->data + leftover);
+
+			new_header->capacity = sz;
+			h->capacity = leftover;
+			return new_header;
 		}
 	}
 	return null;

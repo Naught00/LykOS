@@ -1,5 +1,10 @@
+#include <stdlib.h>
 #include "src/malloc.c"
 #include "src/stdio.c"
 #include "src/assert.c"
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "../vendor/stb_truetype.h"
+#define STBI_NO_STDIO
+#define STBI_NO_THREAD_LOCALS
+#define STB_IMAGE_IMPLEMENTATION
+#include "vendor/stb_image.h"

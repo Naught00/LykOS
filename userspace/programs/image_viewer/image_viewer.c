@@ -1,7 +1,4 @@
 #include <stdlib.h>
-#define STBI_NO_STDIO
-#define STBI_NO_THREAD_LOCALS
-#define STB_IMAGE_IMPLEMENTATION
 #include "vendor/stb_image.h"
 #include "mwm/client.c"
 #include "mwm/utils.c"
